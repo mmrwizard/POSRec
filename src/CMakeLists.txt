@@ -1,0 +1,6 @@
+add_subdirectory(base)
+add_subdirectory(sat)
+add_subdirectory(ogl)
+add_subdirectory(polygon)
+add_subdirectory(poisson)
+add_subdirectory(mms)

@@ -1,0 +1,19 @@
+﻿/*
+ * @Author: Han
+ * @Date: 2018-03-02 10:55:59
+ * 采用AES进行加密
+ */
+#pragma once
+#include <base/common.h>
+
+namespace h2o {
+const std::array<uint8_t, 32> aes_key = {0x77, 0x6F, 0x73, 0x68, 0x69, 0x6E, 0x69, 0x38, 0x38, 0x6E, 0x69,
+                                         0x6D, 0x61, 0x67, 0x65, 0x36, 0x69, 0x38, 0x38, 0x38, 0x57, 0x6F,
+                                         0x73, 0x68, 0x69, 0x6E, 0x69, 0x38, 0x38, 0x44, 0x41, 0x31};
+const std::array<uint8_t, 16> aes_iv = {0x77, 0x6F, 0x73, 0x68, 0x65, 0x64, 0x61, 0x74,
+                                        0x69, 0x61, 0x6E, 0x63, 0x61, 0x69, 0x30, 0x04};
+std::vector<uint8_t> aes_padding(const std::vector<uint8_t> &data);
+std::vector<uint8_t> aes_encrypt(const std::vector<uint8_t> &data);
+std::vector<uint8_t> aes_decrypt(const std::vector<uint8_t> &data);
+bool aes_is_same(const std::vector<uint8_t> &data1, const std::vector<uint8_t> &data2);
+} // namespace h2o
