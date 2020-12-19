@@ -78,6 +78,45 @@ void HsrFile::load() {
     hsfile_->closeFile();
 }
 
+void HsrFile::load_pos_filtered(const Pos &pos, double t_speed) {
+    CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
+
+    std::vector<std::vector<HSPoint>> hspoints;
+
+    while (!hsfile_->getRingData(hspoints)) {
+        for (int i = 0; i < hspoints.size(); ++i) {
+            for (int j = 0; j < hspoints[i].size(); ++j) {
+                double gpstime = hspoints[i][j].lfGpsSec;
+                double speed = pos.get_speed(gpstime);
+                // 最低速度 1m/s
+                if (speed < t_speed) {
+                    continue;
+                }
+
+                gpssecs_.push_back(hspoints[i][j].lfGpsSec);
+                points_.push_back(Vector3f(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z));
+                ranges_.push_back(hspoints[i][j].lfRange);
+                intens_.push_back(hspoints[i][j].nReflection);
+            }
+        }
+    }
+
+    double clip_min, clip_max;
+    clip_min = percentile(intens_, 1);
+    clip_max = percentile(intens_, 99);
+
+    clip_min = std::max(0.0, clip_min);
+    clip_max = std::min(clip_max, 65535.0);
+
+    for (int i = 0; i < intens_.size(); ++i) {
+        double value = (intens_[i] - clip_min) * (clip_max - clip_min);
+        value = clip<double>(value, 0, 65535);
+        intens_[i] = floor(value);
+    }
+
+    hsfile_->closeFile();
+}
+
 void HsrFile::export_las(const std::string &path, const Pos &pos) {
     tm local_tm;
     {

@@ -22,12 +22,13 @@ public:
     // 获取文件获取的实践，点云数据存储的是 UTC 天内秒，
     std::tm get_file_date();
     void load();
+    void load_pos_filtered(const Pos &pos, double t_speed = 1.0);
 
     void export_las(const std::string &path, const Pos &pos);
 
     // to body: X_b = R * X_l + t
     void set_body(const Vector3f &r, const Vector3f &t);
-    void set_body(const std::string& config);
+    void set_body(const std::string &config);
 
 protected:
     // to body

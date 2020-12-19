@@ -20,6 +20,9 @@ void Pos::load_pos(const std::string &path) {
     std::vector<double> yaw = doc.GetColumn<double>(4);
     std::vector<double> pitch = doc.GetColumn<double>(5);
     std::vector<double> roll = doc.GetColumn<double>(6);
+    std::vector<double> vx = doc.GetColumn<double>(7);
+    std::vector<double> vy = doc.GetColumn<double>(8);
+    std::vector<double> vz = doc.GetColumn<double>(9);
 
     int nframes = gpstime.size();
     gpstime_offset_ = Vector2d(DBL_MAX, -DBL_MAX);
@@ -36,6 +39,7 @@ void Pos::load_pos(const std::string &path) {
     gpstimes_.resize(nframes);
     positions_.resize(nframes);
     quaternions_.resize(nframes);
+    velocities_.resize(nframes);
 
     for (int i = 0; i < nframes; ++i) {
         gpstime[i] -= gpstime_offset_.x();
@@ -52,6 +56,8 @@ void Pos::load_pos(const std::string &path) {
 
         Matrix3f R = yawpitchroll(yaw[i], pitch[i], roll[i]);
         quaternions_[i] = R.cast<double>();
+
+        velocities_[i] = Vector3d(vx[i], vy[i], vz[i]);
     }
 }
 
@@ -84,6 +90,26 @@ std::tuple<Vector3d, Matrix3d> Pos::getd(double gpstime) const {
 
     return std::make_tuple(position, rotation);
 }
+
+Vector3d Pos::get_velocity(double gpstime) const {
+    int i0, i1;
+    int n = gpstimes_.size();
+    double u = (gpstime - gpstime_offset_.x()) / (gpstime_offset_.y() - gpstime_offset_.x()) * (n - 1);
+
+    i0 = floor(u);
+    i1 = i0 + 1;
+    u = u - i0;
+
+    if (i0 < 0) {
+        return velocities_.front();
+    } else if (i1 >= n) {
+        return velocities_.back();
+    } else {
+        return velocities_[i0] * (1 - u) + velocities_[i1] * u;
+    }
+}
+
+double Pos::get_speed(double gpstime) const { return get_velocity(gpstime).norm(); }
 
 BoundingBox3d Pos::get_bounds() const {
     BoundingBox3d bounds;

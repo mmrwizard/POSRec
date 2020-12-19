@@ -42,13 +42,12 @@ int main(int argc, char **argv) {
     path_pos = QFileInfo(QString::fromLocal8Bit(path_pos.c_str())).absoluteFilePath().toStdString();
     path_config = QFileInfo(QString::fromLocal8Bit(path_config.c_str())).absoluteFilePath().toStdString();
 
-    HsrFile file(path_input);
-    auto tm = file.get_file_date();
-    file.load();
-    file.set_body(path_config);
-
     Pos pos;
     pos.load_pos(path_pos);
+
+    HsrFile file(path_input);
+    file.load_pos_filtered(pos, 0.1);
+    file.set_body(path_config);
 
     std::string name = get_filename_noext(path_input);
     std::string dir = get_directory(path_input);

@@ -17,6 +17,8 @@ public:
     void load_pos(const std::string &path);
     std::tuple<Vector3f, Matrix3f> get(double gpstime) const;
     std::tuple<Vector3d, Matrix3d> getd(double gpstime) const;
+    Vector3d get_velocity(double gpstime) const;
+    double get_speed(double gpstime) const;
 
     Vector3d get_position_offset() const { return position_offset_; }
     BoundingBox3d get_bounds() const;
@@ -31,6 +33,7 @@ protected:
     VectorXd gpstimes_;
 
     std::vector<Vector3d> positions_;
+    std::vector<Vector3d> velocities_;
     std::vector<Quaterniond> quaternions_;
 };
 
