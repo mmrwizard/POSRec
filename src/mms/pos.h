@@ -16,6 +16,7 @@ class Pos {
 public:
     void load_pos(const std::string &path);
     std::tuple<Vector3f, Matrix3f> get(double gpstime) const;
+    std::tuple<Vector3d, Matrix3d> getd(double gpstime) const;
 
     Vector3d get_position_offset() const { return position_offset_; }
     BoundingBox3d get_bounds() const;
@@ -27,10 +28,10 @@ protected:
     Vector2d gpstime_offset_;
     Vector3d position_offset_;
 
-    VectorXf gpstimes_;
+    VectorXd gpstimes_;
 
-    std::vector<Vector3f> positions_;
-    std::vector<Quaternionf> quaternions_;
+    std::vector<Vector3d> positions_;
+    std::vector<Quaterniond> quaternions_;
 };
 
 } // namespace h2o

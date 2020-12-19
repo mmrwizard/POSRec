@@ -24,8 +24,8 @@ HsrFile::HsrFile(const std::string &path) : path_(path) {
     hsfile_->readFileHeader(header.data());
     hsfile_->setFilter(false);
 
-    R_body = Matrix3f::Identity();
-    t_body = Vector3f::Zero();
+    R_body = Matrix3d::Identity();
+    t_body = Vector3d::Zero();
 }
 
 HsrFile::~HsrFile() { hsfile_->closeFile(); }
@@ -166,14 +166,14 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
 
         for (int p = 0; p < nsegments; ++p) {
             double t = gpssecs_[i + p];
-            auto [t_pos, R_pos] = pos.get(t);
+            auto [t_pos, R_pos] = pos.getd(t);
 
-            Vector3f point = points_[i + p];
+            Vector3d point = points_[i + p].cast<double>();
             uint16_t intensity = intens_[i + p];
 
             point = R_pos * (R_body * point + t_body) + t_pos;
 
-            points[p] = point.cast<double>() + offset;
+            points[p] = point + offset;
             intensities[p] = intensity;
             gpss[p] = t;
 
@@ -205,8 +205,8 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
 }
 
 void HsrFile::set_body(const Vector3f &r, const Vector3f &t) {
-    R_body = Pos::yawpitchroll(r(0), r(1), r(2));
-    t_body = t;
+    R_body = Pos::yawpitchroll(r(0), r(1), r(2)).cast<double>();
+    t_body = t.cast<double>();
 }
 
 void HsrFile::set_body(const std::string &config) {

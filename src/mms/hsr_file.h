@@ -31,8 +31,8 @@ public:
 
 protected:
     // to body
-    Matrix3f R_body;
-    Vector3f t_body;
+    Matrix3d R_body;
+    Vector3d t_body;
 
     std::string path_;
     std::shared_ptr<HsRawiLSP> hsfile_;

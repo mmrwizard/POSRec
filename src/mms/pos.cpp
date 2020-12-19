@@ -48,14 +48,19 @@ void Pos::load_pos(const std::string &path) {
         roll[i] = pitch[i] * DEG2RAD;
 
         gpstimes_[i] = gpstime[i];
-        positions_[i] = Vector3f(x[i], y[i], z[i]);
+        positions_[i] = Vector3d(x[i], y[i], z[i]);
 
         Matrix3f R = yawpitchroll(yaw[i], pitch[i], roll[i]);
-        quaternions_[i] = R;
+        quaternions_[i] = R.cast<double>();
     }
 }
 
 std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
+    auto [p, R] = getd(gpstime);
+    return std::make_tuple(p.cast<float>(), R.cast<float>());
+}
+
+std::tuple<Vector3d, Matrix3d> Pos::getd(double gpstime) const {
     int i0, i1;
     int n = gpstimes_.size();
     double u = (gpstime - gpstime_offset_.x()) / (gpstime_offset_.y() - gpstime_offset_.x()) * (n - 1);
@@ -64,8 +69,8 @@ std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
     i1 = i0 + 1;
     u = u - i0;
 
-    Vector3f position;
-    Matrix3f rotation;
+    Vector3d position;
+    Matrix3d rotation;
     if (i0 < 0) {
         rotation = quaternions_.front().toRotationMatrix();
         position = positions_.front();
@@ -73,7 +78,7 @@ std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
         rotation = quaternions_.back().toRotationMatrix();
         position = positions_.back();
     } else {
-        rotation = Quaternionf(quaternions_[i0].coeffs() * (1.0 - u) + quaternions_[i1].coeffs() * u);
+        rotation = Quaterniond(quaternions_[i0].coeffs() * (1.0 - u) + quaternions_[i1].coeffs() * u);
         position = positions_[i0] * (1 - u) + positions_[i1] * u;
     }
 
@@ -82,8 +87,8 @@ std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
 
 BoundingBox3d Pos::get_bounds() const {
     BoundingBox3d bounds;
-    for (const Vector3f &point : positions_) {
-        bounds.extend(point.cast<double>() + position_offset_);
+    for (const Vector3d &point : positions_) {
+        bounds.extend(point + position_offset_);
     }
     return bounds;
 }
