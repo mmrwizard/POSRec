@@ -4,3 +4,5 @@ add_subdirectory(ogl)
 add_subdirectory(polygon)
 add_subdirectory(poisson)
 add_subdirectory(mms)
+
+add_subdirectory(MMSConverter)

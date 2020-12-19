@@ -15,20 +15,22 @@ namespace h2o {
 class Pos {
 public:
     void load_pos(const std::string &path);
+    std::tuple<Vector3f, Matrix3f> get(double gpstime) const;
 
-protected:
-    inline Matrix3d yawpitchroll(double yaw, double pitch, double roll);
+    Vector3d get_position_offset() const { return position_offset_; }
+    BoundingBox3d get_bounds() const;
+
+public:
+    static Matrix3f yawpitchroll(double yaw, double pitch, double roll);
 
 protected:
     Vector2d gpstime_offset_;
     Vector3d position_offset_;
 
-    VectorXd gpstimes_;
-    MatrixXd positions_;
-    std::vector<Quaterniond> rotations_;
+    VectorXf gpstimes_;
 
-    interpol::squad::QSpline rotation_spline_;
-    Eigen::Spline<double, 3> position_spline_;
+    std::vector<Vector3f> positions_;
+    std::vector<Quaternionf> quaternions_;
 };
 
 } // namespace h2o

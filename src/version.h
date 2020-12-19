@@ -7,9 +7,9 @@
 
 #pragma once
 
-#define H2O_VERSION_MAJOR 1
-#define H2O_VERSION_MINOR 4
-#define H2O_VERSION_REVISION 2
+#define H2O_VERSION_MAJOR 0
+#define H2O_VERSION_MINOR 1
+#define H2O_VERSION_REVISION 0
 
 // Preprocessor to string conversion
 #define H2O_TO_STRING_HELPER(x) #x
