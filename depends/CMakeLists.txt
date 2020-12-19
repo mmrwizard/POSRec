@@ -4,6 +4,7 @@ add_subdirectory(ranger)
 add_subdirectory(aes)
 add_subdirectory(gco)
 add_subdirectory(splinter)
+add_subdirectory(hsapi)
 set_target_properties(splinter
                       qtawesome
                       qtcolorwidget
