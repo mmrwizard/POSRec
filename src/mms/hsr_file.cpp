@@ -49,15 +49,30 @@ void HsrFile::load() {
     CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
 
     std::vector<std::vector<HSPoint>> hspoints;
+
     while (!hsfile_->getRingData(hspoints)) {
         for (int i = 0; i < hspoints.size(); ++i) {
             for (int j = 0; j < hspoints[i].size(); ++j) {
                 points_.push_back(Vector3f(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z));
                 ranges_.push_back(hspoints[i][j].lfRange);
-                intens_.push_back(hspoints[i][j].pixelGrey);
+                intens_.push_back(hspoints[i][j].nReflection);
+
                 gpssecs_.push_back(hspoints[i][j].lfGpsSec);
             }
         }
+    }
+
+    double clip_min, clip_max;
+    clip_min = percentile(intens_, 1);
+    clip_max = percentile(intens_, 99);
+
+    clip_min = std::max(0.0, clip_min);
+    clip_max = std::min(clip_max, 65535.0);
+
+    for (int i = 0; i < intens_.size(); ++i) {
+        double value = (intens_[i] - clip_min) * (clip_max - clip_min);
+        value = clip<double>(value, 0, 65535);
+        intens_[i] = floor(value);
     }
 
     hsfile_->closeFile();
@@ -146,7 +161,7 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
         int nsegments = std::min(NSEG, (int)points_.size() - i);
 
         std::vector<Vector3d> points(nsegments);
-        std::vector<uint8_t> grays(nsegments);
+        std::vector<uint16_t> intensities(nsegments);
         std::vector<double> gpss(nsegments);
 
         for (int p = 0; p < nsegments; ++p) {
@@ -154,12 +169,12 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
             auto [t_pos, R_pos] = pos.get(t);
 
             Vector3f point = points_[i + p];
-            uint8_t gray = intens_[i + p];
+            uint16_t intensity = intens_[i + p];
 
             point = R_pos * (R_body * point + t_body) + t_pos;
 
             points[p] = point.cast<double>() + offset;
-            grays[p] = gray;
+            intensities[p] = intensity;
             gpss[p] = t;
 
             bounds.extend(points[p]);
@@ -171,7 +186,7 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
             laspoint->extended_return_number = 1;
             laspoint->extended_number_of_returns = 1;
             laspoint->gps_time = gpss[p];
-            laspoint->intensity = grays[p];
+            laspoint->intensity = intensities[p];
             if (laszip_write_point(writer)) {
                 CHECK(false) << "Write point failed!";
             }

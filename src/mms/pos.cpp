@@ -57,7 +57,8 @@ void Pos::load_pos(const std::string &path) {
 
 std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
     int i0, i1;
-    double u = (gpstime - gpstime_offset_.x()) / (gpstime_offset_.y() - gpstime_offset_.x()) * (gpstimes_.size() - 1);
+    int n = gpstimes_.size();
+    double u = (gpstime - gpstime_offset_.x()) / (gpstime_offset_.y() - gpstime_offset_.x()) * (n - 1);
 
     i0 = floor(u);
     i1 = i0 + 1;
@@ -68,11 +69,11 @@ std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
     if (i0 < 0) {
         rotation = quaternions_.front().toRotationMatrix();
         position = positions_.front();
-    } else if (i1 >= gpstimes_.size()) {
+    } else if (i1 >= n) {
         rotation = quaternions_.back().toRotationMatrix();
         position = positions_.back();
     } else {
-        rotation = quaternions_.at(i0).slerp(u, quaternions_.at(i1)).toRotationMatrix();
+        rotation = Quaternionf(quaternions_[i0].coeffs() * (1.0 - u) + quaternions_[i1].coeffs() * u);
         position = positions_[i0] * (1 - u) + positions_[i1] * u;
     }
 

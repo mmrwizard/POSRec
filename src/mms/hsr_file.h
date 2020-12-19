@@ -41,7 +41,7 @@ protected:
 
     std::vector<Vector3f> points_;
     std::vector<float> ranges_;
-    std::vector<uint8_t> intens_;
+    std::vector<uint16_t> intens_;
     std::vector<double> gpssecs_;
 
     std::vector<uint8_t> header;
