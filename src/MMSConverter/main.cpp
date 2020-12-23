@@ -23,11 +23,14 @@ int main(int argc, char **argv) {
     std::string path_pos;
     std::string path_config;
 
+    std::vector<double> time_range;
+
     // clang-format off
     options.add_options("MMSConverter")
       ("i,input", "Input file path", cxxopts::value(path_input))
       ("p,pos", "Path to pos file", cxxopts::value(path_pos))
       ("c,config", "Path to configuration file", cxxopts::value(path_config))
+      ("t,time", "Range of UTC time, as --time=1.0,10.0", cxxopts::value(time_range))
       ("h,help", "Print help message.");
     // clang-format on
 
@@ -46,7 +49,7 @@ int main(int argc, char **argv) {
     pos.load_pos(path_pos);
 
     HsrFile file(path_input);
-    file.load_pos_filtered(pos, 0.1);
+    file.load_pos_filtered(pos, 0.1, time_range);
     file.set_body(path_config);
 
     std::string name = get_filename_noext(path_input);
