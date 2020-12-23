@@ -69,9 +69,10 @@ void HsrFile::load() {
     clip_min = std::max(0.0, clip_min);
     clip_max = std::min(clip_max, 65535.0);
 
+    double scale = 1.0 / (clip_max - clip_min);
     for (int i = 0; i < intens_.size(); ++i) {
-        double value = (intens_[i] - clip_min) * (clip_max - clip_min);
-        value = clip<double>(value, 0, 65535);
+        double value = (intens_[i] - clip_min) * scale;
+        value = clip<double>(value * 65535, 0, 65535);
         intens_[i] = floor(value);
     }
 
@@ -108,9 +109,10 @@ void HsrFile::load_pos_filtered(const Pos &pos, double t_speed) {
     clip_min = std::max(0.0, clip_min);
     clip_max = std::min(clip_max, 65535.0);
 
+    double scale = 1.0 / (clip_max - clip_min);
     for (int i = 0; i < intens_.size(); ++i) {
-        double value = (intens_[i] - clip_min) * (clip_max - clip_min);
-        value = clip<double>(value, 0, 65535);
+        double value = (intens_[i] - clip_min) * scale;
+        value = clip<double>(value * 65535, 0, 65535);
         intens_[i] = floor(value);
     }
 
