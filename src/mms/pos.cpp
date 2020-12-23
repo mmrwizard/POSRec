@@ -11,18 +11,62 @@
 
 namespace h2o {
 void Pos::load_pos(const std::string &path) {
-    rapidcsv::Document doc(string_utf8_to_fstream(path), rapidcsv::LabelParams(-1));
+    std::vector<double> gpstime;
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> z;
+    std::vector<double> yaw;
+    std::vector<double> pitch;
+    std::vector<double> roll;
+    std::vector<double> vx;
+    std::vector<double> vy;
+    std::vector<double> vz;
 
-    std::vector<double> gpstime = doc.GetColumn<double>(0);
-    std::vector<double> x = doc.GetColumn<double>(1);
-    std::vector<double> y = doc.GetColumn<double>(2);
-    std::vector<double> z = doc.GetColumn<double>(3);
-    std::vector<double> yaw = doc.GetColumn<double>(4);
-    std::vector<double> pitch = doc.GetColumn<double>(5);
-    std::vector<double> roll = doc.GetColumn<double>(6);
-    std::vector<double> vx = doc.GetColumn<double>(7);
-    std::vector<double> vy = doc.GetColumn<double>(8);
-    std::vector<double> vz = doc.GetColumn<double>(9);
+    if (get_extension_name(path) == ".csv") {
+        rapidcsv::Document doc;
+
+        doc = rapidcsv::Document(string_utf8_to_fstream(path), rapidcsv::LabelParams(-1));
+        gpstime = doc.GetColumn<double>(0);
+        x = doc.GetColumn<double>(1);
+        y = doc.GetColumn<double>(2);
+        z = doc.GetColumn<double>(3);
+        yaw = doc.GetColumn<double>(4);
+        pitch = doc.GetColumn<double>(5);
+        roll = doc.GetColumn<double>(6);
+        vx = doc.GetColumn<double>(7);
+        vy = doc.GetColumn<double>(8);
+        vz = doc.GetColumn<double>(9);
+    } else if (get_extension_name(path) == ".pos") {
+        std::ifstream posfile(string_utf8_to_fstream(path));
+        std::string line;
+        while (getline(posfile, line) && posfile.good()) {
+            auto new_end =
+                std::unique(begin(line), end(line), [](char lhs, char rhs) { return (lhs == rhs) && (lhs == ' '); });
+            line.erase(new_end, end(line));
+            std::vector<std::string> chunks = string_split(line, " ");
+            if (chunks.empty()) {
+                continue;
+            }
+
+            // 判断第一个点是不是数字
+            try {
+                double first_value = std::stod(chunks.front());
+            } catch (const std::exception &) {
+                continue;
+            }
+
+            gpstime.push_back(std::stod(chunks[0]));
+            x.push_back(std::stod(chunks[1]));
+            y.push_back(std::stod(chunks[2]));
+            z.push_back(std::stod(chunks[3]));
+            yaw.push_back(std::stod(chunks[4]));
+            pitch.push_back(std::stod(chunks[5]));
+            roll.push_back(std::stod(chunks[6]));
+            vx.push_back(std::stod(chunks[7]));
+            vy.push_back(std::stod(chunks[8]));
+            vz.push_back(std::stod(chunks[9]));
+        }
+    }
 
     int nframes = gpstime.size();
     gpstime_offset_ = Vector2d(DBL_MAX, -DBL_MAX);
