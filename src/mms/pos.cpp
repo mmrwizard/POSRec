@@ -98,7 +98,7 @@ void Pos::load_pos(const std::string &path) {
         gpstimes_[i] = gpstime[i];
         positions_[i] = Vector3d(x[i], y[i], z[i]);
 
-        Matrix3f R = yawpitchroll(yaw[i], pitch[i], roll[i]);
+        Matrix3f R = ypr_to_rotation(yaw[i], pitch[i], roll[i]);
         quaternions_[i] = R.cast<double>();
 
         velocities_[i] = Vector3d(vx[i], vy[i], vz[i]);
@@ -163,7 +163,7 @@ BoundingBox3d Pos::get_bounds() const {
     return bounds;
 }
 
-Matrix3f Pos::yawpitchroll(double yaw, double pitch, double roll) {
+Matrix3f Pos::ypr_to_rotation(double yaw, double pitch, double roll) {
     // 采用的是海大数云自己定义的 yaw，和 IE 的 yaw 相差负数
     double cyaw, syaw, cpitch, spitch, croll, sroll;
     cyaw = cos(yaw);
@@ -193,5 +193,18 @@ Matrix3f Pos::yawpitchroll(double yaw, double pitch, double roll) {
     Matrix3f R = Ryaw * Rpitch * Rroll;
 
     return R;
+}
+
+Vector3f Pos::rotation_to_ypr(const Matrix3f &R) {
+    Vector3f euler = R.eulerAngles(2, 0, 1);
+
+    // 海达定义的第一个角是相反的
+    euler(0) = -euler(0);
+
+    if (euler(0) < 0.0) {
+        euler(0) = euler(0) + 2.0 * M_PI;
+    }
+
+    return euler;
 }
 } // namespace h2o

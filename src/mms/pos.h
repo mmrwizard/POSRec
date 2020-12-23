@@ -24,7 +24,8 @@ public:
     BoundingBox3d get_bounds() const;
 
 public:
-    static Matrix3f yawpitchroll(double yaw, double pitch, double roll);
+    static Matrix3f ypr_to_rotation(double yaw, double pitch, double roll);
+    static Vector3f rotation_to_ypr(const Matrix3f& R);
 
 protected:
     Vector2d gpstime_offset_;

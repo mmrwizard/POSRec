@@ -251,7 +251,7 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
 }
 
 void HsrFile::set_body(const Vector3f &r, const Vector3f &t) {
-    R_body = Pos::yawpitchroll(r(0), r(1), r(2)).cast<double>();
+    R_body = Pos::ypr_to_rotation(r(0), r(1), r(2)).cast<double>();
     t_body = t.cast<double>();
 }
 
