@@ -11,6 +11,14 @@
 
 #include "pos.h"
 
+namespace ceres {
+class Problem;
+namespace internal {
+class ResidualBlock;
+} // namespace internal
+typedef internal::ResidualBlock *ResidualBlockId;
+} // namespace ceres
+
 namespace h2o {
 class LiDARCalibrate {
 public:
@@ -45,11 +53,15 @@ public:
     };
 
     struct Config {
-        bool with_translate_ = false;
+        bool with_translate = false;
+
+        double std_body_angle = 3.0 * DEG2RAD;
+        double std_lidar_point = 0.2;
     };
 
 public:
     LiDARCalibrate(const Pos &pos, const Config &config = Config());
+    LiDARCalibrate(const Pos &pos1, const Pos &pos2, const Config &config = Config());
     ~LiDARCalibrate() {}
 
 public:
@@ -58,6 +70,9 @@ public:
     void set_tps(const std::vector<TPS> &tps);
 
     std::tuple<Quaterniond, Vector3d> calibrate();
+
+protected:
+    void evaluate();
 
 protected:
     // 初始参数
@@ -71,7 +86,14 @@ protected:
     std::vector<GCP> gcps_;
     std::vector<TPS> tps_;
 
+    std::vector<ceres::ResidualBlockId> blocks_gcps_;
+    std::vector<ceres::ResidualBlockId> blocks_tps_;
+    std::shared_ptr<ceres::Problem> problem_;
+
     const Pos &pos_;
+    const Pos &pos2_;
+    bool has_pos2_;
+
     Config param_;
 };
 

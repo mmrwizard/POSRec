@@ -75,10 +75,38 @@ private:
     const LiDARCalibrate::TPS &tps_;
 };
 
-LiDARCalibrate::LiDARCalibrate(const Pos &pos, const Config &config) : pos_(pos), param_(config) {
+class BodyRegularizationCostFunctor {
+public:
+    template <typename T> bool operator()(const T *const ptr_dq_body, T *residual) const {
+        using Vector3JetT = Eigen::Matrix<T, 3, 1>;
+        using QuaternionJetT = Eigen::Quaternion<T>;
+        QuaternionJetT dq_body(ptr_dq_body);
+        using AngleAxisJetT = Eigen::AngleAxis<T>;
+
+        T theta = AngleAxisJetT(dq_body).angle();
+        residual[0] = theta;
+
+        return true;
+    }
+
+private:
+};
+
+LiDARCalibrate::LiDARCalibrate(const Pos &pos, const Config &config) : pos_(pos), param_(config), pos2_(Pos()) {
     q_body_ = dq_body_ = Quaterniond::Identity();
     t_body_ = dt_body_ = Vector3d::Zero();
+
+    has_pos2_ = false;
 }
+
+LiDARCalibrate::LiDARCalibrate(const Pos &pos1, const Pos &pos2, const Config &config)
+    : pos_(pos1), pos2_(pos2), param_(config) {
+    q_body_ = dq_body_ = Quaterniond::Identity();
+    t_body_ = dt_body_ = Vector3d::Zero();
+
+    has_pos2_ = true;
+}
+
 void LiDARCalibrate::set_body(const Quaterniond &q, const Vector3d &t) {
     q_body_ = q;
     t_body_ = t;
@@ -103,33 +131,69 @@ void LiDARCalibrate::set_tps(const std::vector<TPS> &tps) {
         tps.t_pos1 = t_pos1 + pos_.get_position_offset();
         tps.p_local1 = q_body_.inverse() * (R_pos1.transpose() * (tps.p_lidar1 - tps.t_pos1) - t_body_);
 
-        auto [t_pos2, R_pos2] = pos_.getd(tps.t2);
-        tps.q_pos2 = R_pos2;
-        tps.t_pos2 = t_pos2 + pos_.get_position_offset();
-        tps.p_local2 = q_body_.inverse() * (R_pos2.transpose() * (tps.p_lidar2 - tps.t_pos2) - t_body_);
+        if (has_pos2_) {
+            auto [t_pos2, R_pos2] = pos2_.getd(tps.t2);
+            tps.q_pos2 = R_pos2;
+            tps.t_pos2 = t_pos2 + pos_.get_position_offset();
+            tps.p_local2 = q_body_.inverse() * (R_pos2.transpose() * (tps.p_lidar2 - tps.t_pos2) - t_body_);
+        } else {
+            auto [t_pos2, R_pos2] = pos_.getd(tps.t2);
+            tps.q_pos2 = R_pos2;
+            tps.t_pos2 = t_pos2 + pos_.get_position_offset();
+            tps.p_local2 = q_body_.inverse() * (R_pos2.transpose() * (tps.p_lidar2 - tps.t_pos2) - t_body_);
+        }
     }
 }
 
 std::tuple<Quaterniond, Vector3d> LiDARCalibrate::calibrate() {
 
-    ceres::Problem problem;
+    blocks_tps_.clear();
+    blocks_gcps_.clear();
+    dq_body_ = Quaterniond::Identity();
+    dt_body_ = Vector3d::Zero();
+
+    problem_ = std::make_shared<ceres::Problem>();
+
+    double num_gcps = gcps_.size() * 3.0;
+    double num_tps = tps_.size() * 3.0;
 
     for (int i = 0; i < gcps_.size(); ++i) {
         ceres::CostFunction *cost =
             new ceres::AutoDiffCostFunction<GcpCostFunctor, 3, 4, 3>(new GcpCostFunctor(gcps_[i], q_body_, t_body_));
-        problem.AddResidualBlock(cost, nullptr, dq_body_.coeffs().data(), dt_body_.data());
+
+        auto block = problem_->AddResidualBlock(
+            cost,
+            new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_lidar_point * param_.std_lidar_point * num_gcps),
+                                  ceres::TAKE_OWNERSHIP),
+            dq_body_.coeffs().data(), dt_body_.data());
+        blocks_gcps_.push_back(block);
     }
     for (int i = 0; i < tps_.size(); ++i) {
         ceres::CostFunction *cost =
             new ceres::AutoDiffCostFunction<TpsCostFunctor, 3, 4, 3>(new TpsCostFunctor(tps_[i], q_body_, t_body_));
-        problem.AddResidualBlock(cost, nullptr, dq_body_.coeffs().data(), dt_body_.data());
+        auto block = problem_->AddResidualBlock(
+            cost,
+            new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_lidar_point * param_.std_lidar_point * num_tps),
+                                  ceres::TAKE_OWNERSHIP),
+            dq_body_.coeffs().data(), dt_body_.data());
+        blocks_tps_.push_back(block);
+    }
+
+    {
+        // 加入角度信息的带权观测值
+        ceres::CostFunction *cost =
+            new ceres::AutoDiffCostFunction<BodyRegularizationCostFunctor, 1, 4>(new BodyRegularizationCostFunctor());
+        problem_->AddResidualBlock(cost,
+                                   new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_body_angle * param_.std_body_angle),
+                                                         ceres::TAKE_OWNERSHIP),
+                                   dq_body_.coeffs().data());
     }
 
     ceres::LocalParameterization *quaternion_parametrization = new ceres::EigenQuaternionParameterization();
-    problem.SetParameterization(dq_body_.coeffs().data(), quaternion_parametrization);
+    problem_->SetParameterization(dq_body_.coeffs().data(), quaternion_parametrization);
 
-    if (!param_.with_translate_) {
-        problem.SetParameterBlockConstant(dt_body_.data());
+    if (!param_.with_translate) {
+        problem_->SetParameterBlockConstant(dt_body_.data());
     }
 
     ceres::Solver::Options op;
@@ -137,15 +201,56 @@ std::tuple<Quaterniond, Vector3d> LiDARCalibrate::calibrate() {
     op.num_threads = 1;
 
     ceres::Solver::Summary summary;
-    ceres::Solve(op, &problem, &summary);
-
+    ceres::Solve(op, problem_.get(), &summary);
     LOG(INFO) << summary.BriefReport();
+
+    evaluate();
 
     if (summary.IsSolutionUsable()) {
         return std::make_tuple(dq_body_, dt_body_);
     } else {
         return std::make_tuple(Quaterniond::Identity(), Vector3d::Zero());
     }
+}
+
+void LiDARCalibrate::evaluate() {
+    if (blocks_gcps_.size()) {
+        ceres::Problem::EvaluateOptions evops;
+        evops.apply_loss_function = false;
+        evops.residual_blocks = blocks_gcps_;
+
+        std::vector<double> residuals;
+        problem_->Evaluate(evops, nullptr, &residuals, nullptr, nullptr);
+
+        std::vector<double> errors(gcps_.size());
+        for (int i = 0; i < gcps_.size(); ++i) {
+            errors[i] = residuals[3 * i + 0] * residuals[3 * i + 0] + residuals[3 * i + 1] * residuals[3 * i + 1] +
+                        residuals[3 * i + 2] * residuals[3 * i + 2];
+            errors[i] = sqrt(errors[i]);
+        }
+
+        LOG(INFO) << "RMSE for GCP is: " << rmse(errors);
+    }
+
+    if (blocks_tps_.size()) {
+        ceres::Problem::EvaluateOptions evops;
+        evops.apply_loss_function = false;
+        evops.residual_blocks = blocks_tps_;
+
+        std::vector<double> residuals;
+        problem_->Evaluate(evops, nullptr, &residuals, nullptr, nullptr);
+
+        std::vector<double> errors(tps_.size());
+        for (int i = 0; i < tps_.size(); ++i) {
+            errors[i] = residuals[3 * i + 0] * residuals[3 * i + 0] + residuals[3 * i + 1] * residuals[3 * i + 1] +
+                        residuals[3 * i + 2] * residuals[3 * i + 2];
+            errors[i] = sqrt(errors[i]);
+        }
+
+        LOG(INFO) << "RMSE for TPS is: " << rmse(errors);
+    }
+
+    LOG(INFO) << "Rotation size of dq is: " << AngleAxisd(dq_body_).angle() * RAD2DEG * 2.0;
 }
 
 std::vector<LiDARCalibrate::GCP> LiDARCalibrate::GCP::load(const std::string &path) {
