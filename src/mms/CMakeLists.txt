@@ -5,7 +5,7 @@ source_group(Spline FILES ${SOURCES_SPLINE})
 
 h2o_add_library(h2o_mms SOURCES "${SOURCES_SPLINE};${SOURCES}"
  PUBLIC_LINKS h2o_base 
- PRIVATE_LINKS Laszip::Laszip hsapi
+ PRIVATE_LINKS ${CERES_LIBRARIES} Laszip::Laszip hsapi
 )
 # copy qm files to position
 get_target_property(DLL_FILES hsapi IMPORTED_LOCATION)

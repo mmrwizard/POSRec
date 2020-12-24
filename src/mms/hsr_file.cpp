@@ -63,8 +63,8 @@ void HsrFile::load() {
     }
 
     double clip_min, clip_max;
-    clip_min = percentile(intens_, 1);
-    clip_max = percentile(intens_, 99);
+    clip_min = percentile(intens_, 5);
+    clip_max = percentile(intens_, 95);
 
     clip_min = std::max(0.0, clip_min);
     clip_max = std::min(clip_max, 65535.0);
@@ -108,8 +108,8 @@ void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vecto
     }
 
     double clip_min, clip_max;
-    clip_min = percentile(intens_, 1);
-    clip_max = percentile(intens_, 99);
+    clip_min = percentile(intens_, 5);
+    clip_max = percentile(intens_, 95);
 
     clip_min = std::max(0.0, clip_min);
     clip_max = std::min(clip_max, 65535.0);
@@ -273,6 +273,29 @@ void HsrFile::set_body(const std::string &config) {
     r(2) = j["Roll"] * DEG2RAD;
 
     set_body(r, t);
+}
+
+std::tuple<Quaterniond, Vector3d> HsrFile::read_lidar_body(const std::string &path) {
+    nlohmann::json j = read_json_file(path);
+    if (!j.count("LiDAR")) {
+        return std::make_tuple(Quaterniond::Identity(), Vector3d::Zero());
+    }
+    j = j["LiDAR"];
+
+    Vector3f r;
+    Vector3f t;
+    t(0) = j["X"];
+    t(1) = j["Y"];
+    t(2) = j["Z"];
+
+    r(0) = j["Yaw"] * DEG2RAD;
+    r(1) = j["Pitch"] * DEG2RAD;
+    r(2) = j["Roll"] * DEG2RAD;
+
+    Matrix3f R = Pos::ypr_to_rotation(r(0), r(1), r(2));
+    Quaternionf q(R);
+
+    return std::make_tuple(q.cast<double>(), t.cast<double>());
 }
 
 } // namespace h2o
