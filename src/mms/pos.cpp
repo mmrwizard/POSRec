@@ -40,6 +40,9 @@ void Pos::load_pos(const std::string &path) {
         std::ifstream posfile(string_utf8_to_fstream(path));
         std::string line;
         while (getline(posfile, line) && posfile.good()) {
+            string_left_trim(&line);
+            string_right_trim(&line);
+
             auto new_end =
                 std::unique(begin(line), end(line), [](char lhs, char rhs) { return (lhs == rhs) && (lhs == ' '); });
             line.erase(new_end, end(line));
@@ -93,13 +96,13 @@ void Pos::load_pos(const std::string &path) {
 
         yaw[i] = yaw[i] * DEG2RAD;
         pitch[i] = pitch[i] * DEG2RAD;
-        roll[i] = pitch[i] * DEG2RAD;
+        roll[i] = roll[i] * DEG2RAD;
 
         gpstimes_[i] = gpstime[i];
         positions_[i] = Vector3d(x[i], y[i], z[i]);
 
-        Matrix3f R = ypr_to_rotation(yaw[i], pitch[i], roll[i]);
-        quaternions_[i] = R.cast<double>();
+        Matrix3d R = ypr_to_rotation(yaw[i], pitch[i], roll[i]);
+        quaternions_[i] = R;
 
         velocities_[i] = Vector3d(vx[i], vy[i], vz[i]);
     }
