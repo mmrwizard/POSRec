@@ -28,7 +28,7 @@ public:
     void export_las(const std::string &path, const Pos &pos);
 
     // to body: X_b = R * X_l + t
-    void set_body(const Vector3f &r, const Vector3f &t);
+    void set_body(const Vector3d &r, const Vector3d &t);
     void set_body(const std::string &config);
 
 public:

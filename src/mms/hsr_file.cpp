@@ -218,8 +218,9 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
             uint16_t intensity = intens_[i + p];
 
             point = R_pos * (R_body * point + t_body) + t_pos;
+            point += offset;
 
-            points[p] = point + offset;
+            points[p] = point;
             intensities[p] = intensity;
             gpss[p] = t;
 
@@ -250,9 +251,9 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
     laszip_destroy(writer);
 }
 
-void HsrFile::set_body(const Vector3f &r, const Vector3f &t) {
-    R_body = Pos::ypr_to_rotation(r(0), r(1), r(2)).cast<double>();
-    t_body = t.cast<double>();
+void HsrFile::set_body(const Vector3d &r, const Vector3d &t) {
+    R_body = Pos::ypr_to_rotation(r(0), r(1), r(2));
+    t_body = t;
 }
 
 void HsrFile::set_body(const std::string &config) {
@@ -262,15 +263,15 @@ void HsrFile::set_body(const std::string &config) {
     }
     j = j["LiDAR"];
 
-    Vector3f r;
-    Vector3f t;
+    Vector3d r;
+    Vector3d t;
     t(0) = j["X"];
     t(1) = j["Y"];
     t(2) = j["Z"];
 
-    r(0) = j["Yaw"] * DEG2RAD;
-    r(1) = j["Pitch"] * DEG2RAD;
-    r(2) = j["Roll"] * DEG2RAD;
+    r(0) = j["Yaw"].get<double>() * DEG2RAD;
+    r(1) = j["Pitch"].get<double>() * DEG2RAD;
+    r(2) = j["Roll"].get<double>() * DEG2RAD;
 
     set_body(r, t);
 }
@@ -282,20 +283,20 @@ std::tuple<Quaterniond, Vector3d> HsrFile::read_lidar_body(const std::string &pa
     }
     j = j["LiDAR"];
 
-    Vector3f r;
-    Vector3f t;
+    Vector3d r;
+    Vector3d t;
     t(0) = j["X"];
     t(1) = j["Y"];
     t(2) = j["Z"];
 
-    r(0) = j["Yaw"] * DEG2RAD;
-    r(1) = j["Pitch"] * DEG2RAD;
-    r(2) = j["Roll"] * DEG2RAD;
+    r(0) = j["Yaw"].get<double>() * DEG2RAD;
+    r(1) = j["Pitch"].get<double>() * DEG2RAD;
+    r(2) = j["Roll"].get<double>() * DEG2RAD;
 
-    Matrix3f R = Pos::ypr_to_rotation(r(0), r(1), r(2));
-    Quaternionf q(R);
+    Matrix3d R = Pos::ypr_to_rotation(r(0), r(1), r(2));
+    Quaterniond q(R);
 
-    return std::make_tuple(q.cast<double>(), t.cast<double>());
+    return std::make_tuple(q, t);
 }
 
 } // namespace h2o

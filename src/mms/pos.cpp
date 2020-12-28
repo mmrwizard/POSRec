@@ -10,6 +10,8 @@
 #include <base/base.h>
 
 namespace h2o {
+Pos::Pos() {}
+
 void Pos::load_pos(const std::string &path) {
     std::vector<double> gpstime;
     std::vector<double> x;
@@ -78,6 +80,7 @@ void Pos::load_pos(const std::string &path) {
     for (int i = 0; i < nframes; ++i) {
         gpstime_offset_.x() = std::min(gpstime[i], gpstime_offset_.x());
         gpstime_offset_.y() = std::max(gpstime[i], gpstime_offset_.y());
+
         position_offset_.x() = std::min(x[i], position_offset_.x());
         position_offset_.y() = std::min(y[i], position_offset_.y());
         position_offset_.z() = std::min(z[i], position_offset_.z());
@@ -131,7 +134,7 @@ std::tuple<Vector3d, Matrix3d> Pos::getd(double gpstime) const {
         rotation = quaternions_.back().toRotationMatrix();
         position = positions_.back();
     } else {
-        rotation = Quaterniond(quaternions_[i0].coeffs() * (1.0 - u) + quaternions_[i1].coeffs() * u);
+        rotation = quaternions_[i0].slerp(u, quaternions_[i1]);
         position = positions_[i0] * (1 - u) + positions_[i1] * u;
     }
 
@@ -166,7 +169,7 @@ BoundingBox3d Pos::get_bounds() const {
     return bounds;
 }
 
-Matrix3f Pos::ypr_to_rotation(double yaw, double pitch, double roll) {
+Matrix3d Pos::ypr_to_rotation(double yaw, double pitch, double roll) {
     // 采用的是海大数云自己定义的 yaw，和 IE 的 yaw 相差负数
     double cyaw, syaw, cpitch, spitch, croll, sroll;
     cyaw = cos(yaw);
@@ -176,7 +179,7 @@ Matrix3f Pos::ypr_to_rotation(double yaw, double pitch, double roll) {
     croll = cos(roll);
     sroll = sin(roll);
 
-    Matrix3f Ryaw = Matrix3f::Identity(), Rpitch = Matrix3f::Identity(), Rroll = Matrix3f::Identity();
+    Matrix3d Ryaw = Matrix3d::Identity(), Rpitch = Matrix3d::Identity(), Rroll = Matrix3d::Identity();
 
     Ryaw(0, 0) = cyaw;
     Ryaw(0, 1) = syaw;
@@ -193,13 +196,13 @@ Matrix3f Pos::ypr_to_rotation(double yaw, double pitch, double roll) {
     Rroll(2, 0) = -sroll;
     Rroll(2, 2) = croll;
 
-    Matrix3f R = Ryaw * Rpitch * Rroll;
+    Matrix3d R = Ryaw * Rpitch * Rroll;
 
     return R;
 }
 
-Vector3f Pos::rotation_to_ypr(const Matrix3f &R) {
-    Vector3f euler = R.eulerAngles(2, 0, 1);
+Vector3d Pos::rotation_to_ypr(const Matrix3d &R) {
+    Vector3d euler = R.eulerAngles(2, 0, 1);
 
     // 海达定义的第一个角是相反的
     euler(0) = -euler(0);

@@ -11,9 +11,15 @@
 #include "spline/squad.hpp"
 #include <unsupported/Eigen/Splines>
 
+namespace GeographicLib {
+class Geocentric;
+} // namespace GeographicLib
+
 namespace h2o {
 class Pos {
 public:
+    Pos();
+
     void load_pos(const std::string &path);
     std::tuple<Vector3f, Matrix3f> get(double gpstime) const;
     std::tuple<Vector3d, Matrix3d> getd(double gpstime) const;
@@ -23,9 +29,10 @@ public:
     Vector3d get_position_offset() const { return position_offset_; }
     BoundingBox3d get_bounds() const;
 
+
 public:
-    static Matrix3f ypr_to_rotation(double yaw, double pitch, double roll);
-    static Vector3f rotation_to_ypr(const Matrix3f& R);
+    static Matrix3d ypr_to_rotation(double yaw, double pitch, double roll);
+    static Vector3d rotation_to_ypr(const Matrix3d &R);
 
 protected:
     Vector2d gpstime_offset_;
@@ -36,6 +43,8 @@ protected:
     std::vector<Vector3d> positions_;
     std::vector<Vector3d> velocities_;
     std::vector<Quaterniond> quaternions_;
+
+    std::string proj_;
 };
 
 } // namespace h2o

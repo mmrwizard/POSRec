@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
     t_body = dt + t_body;
 
     // 保存新参数
-    Vector3f ypr = Pos::rotation_to_ypr(q_body.toRotationMatrix().cast<float>());
+    Vector3d ypr = Pos::rotation_to_ypr(q_body.toRotationMatrix());
 
     std::string name = get_filename_noext(path_config);
     name = join_paths(get_directory(path_config), name + "_cal.json");
