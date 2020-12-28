@@ -8,7 +8,6 @@ cd build
 cmake -GNinja \
       -DH2O_BUILD_DOG=OFF \
       -DH2O_BUILD_SERIAL=OFF \
-      -DH2O_VERSION_NAME=kinsar \
       -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
       -DCMAKE_SYSROOT=$CONDA_PREFIX/$HOST/sysroot \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \

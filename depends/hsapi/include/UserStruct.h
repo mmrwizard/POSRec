@@ -4,7 +4,7 @@
  * @Description: 
  */
 #pragma once
-#include "Point3d.h"
+#include "Point3D.h"
 
 typedef unsigned char byte;
 typedef unsigned __int16 ui16;

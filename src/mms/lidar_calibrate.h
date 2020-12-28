@@ -53,6 +53,7 @@ public:
     };
 
     struct Config {
+        Config() {}
         bool with_translate = false;
 
         double std_body_angle = 3.0 * DEG2RAD;
