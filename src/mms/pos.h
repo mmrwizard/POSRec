@@ -8,9 +8,6 @@
 
 #include <base/common.h>
 
-#include "spline/squad.hpp"
-#include <unsupported/Eigen/Splines>
-
 namespace GeographicLib {
 class Geocentric;
 } // namespace GeographicLib
