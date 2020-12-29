@@ -111,11 +111,6 @@ void Pos::load_pos(const std::string &path) {
     }
 }
 
-std::tuple<Vector3f, Matrix3f> Pos::get(double gpstime) const {
-    auto [p, R] = getd(gpstime);
-    return std::make_tuple(p.cast<float>(), R.cast<float>());
-}
-
 std::tuple<Vector3d, Matrix3d> Pos::getd(double gpstime) const {
     int i0, i1;
     int n = gpstimes_.size();

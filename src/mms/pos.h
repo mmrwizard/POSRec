@@ -18,7 +18,6 @@ public:
     Pos();
 
     void load_pos(const std::string &path);
-    std::tuple<Vector3f, Matrix3f> get(double gpstime) const;
     std::tuple<Vector3d, Matrix3d> getd(double gpstime) const;
     Vector3d get_velocity(double gpstime) const;
     double get_speed(double gpstime) const;
