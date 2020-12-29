@@ -12,8 +12,8 @@
 #include <base/filesystem.h>
 #include <base/string.h>
 
-#include <fstream>
 #include <QVariant>
+#include <fstream>
 
 namespace h2o {
 
@@ -58,6 +58,12 @@ template <typename T> void write_binary_blob(const std::string &path, const std:
 // Read each line of a text file into a separate element. Empty lines are
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> read_text_file_lines(const std::string &path);
+
+// convert from local to utc
+std::tm get_utc_time(const std::tm &local);
+
+// get seconds of the day, omit decimal seconds
+double get_seconds_of_day(const std::tm &time);
 
 #ifdef _WIN32
 // return the available memory in MB

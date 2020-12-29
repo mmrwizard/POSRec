@@ -91,6 +91,27 @@ std::vector<std::string> read_text_file_lines(const std::string &path) {
     return lines;
 }
 
+std::tm get_utc_time(const std::tm &local) {
+    std::tm utc = local;
+    time_t time = mktime(&utc);
+    utc = *gmtime(&time);
+    return utc;
+}
+
+double get_seconds_of_day(const std::tm &time) {
+    std::tm tm0 = time;
+    tm0.tm_hour = 0;
+    tm0.tm_min = 0;
+    tm0.tm_sec = 0;
+
+    std::tm tm1 = time;
+
+    time_t t0 = mktime(&tm0);
+    time_t t1 = mktime(&tm1);
+
+    return (double)(t1 - t0);
+}
+
 #ifdef _WIN32
 double get_system_memory() {
     MEMORYSTATUSEX memory_status;
