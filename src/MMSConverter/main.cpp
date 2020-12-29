@@ -52,11 +52,11 @@ int main(int argc, char **argv) {
     Pos pos;
     pos.load_pos(path_pos);
 
-    HsrFile file(path_input);
-    file.load_pos_filtered(pos, 0.1, time_range);
-    file.set_body(path_config);
-
     if (path_pano.empty()) {
+        HsrFile file(path_input);
+        file.load_pos_filtered(pos, 0.1, time_range);
+        file.set_body(path_config);
+
         std::string name = get_filename_noext(path_input);
         std::string dir = get_directory(path_input);
         name = join_paths(dir, name + ".laz");
