@@ -79,7 +79,8 @@ void HsrFile::load() {
     hsfile_->closeFile();
 }
 
-void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vector<double> &rtime) {
+void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vector<double> &rtime,
+                                const std::vector<double> &rdist) {
     CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
 
     std::vector<std::vector<HSPoint>> hspoints;
@@ -88,8 +89,13 @@ void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vecto
         for (int i = 0; i < hspoints.size(); ++i) {
             for (int j = 0; j < hspoints[i].size(); ++j) {
                 double gpstime = hspoints[i][j].lfGpsSec;
+                double range = hspoints[i][j].lfRange;
 
                 if (rtime.size() == 2 && (gpstime < rtime[0] || gpstime > rtime[1])) {
+                    continue;
+                }
+
+                if (rdist.size() == 2 && (range < rdist[0] || range > rdist[1])) {
                     continue;
                 }
 

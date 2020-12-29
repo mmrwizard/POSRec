@@ -23,7 +23,8 @@ public:
     std::tm get_file_date();
     void load();
     void load_pos_filtered(const Pos &pos, double t_speed = 1.0,
-                           const std::vector<double> &rtime = std::vector<double>());
+                           const std::vector<double> &rtime = std::vector<double>(),
+                           const std::vector<double> &rdist = {1.5, 30.0});
 
     void export_las(const std::string &path, const Pos &pos);
 
