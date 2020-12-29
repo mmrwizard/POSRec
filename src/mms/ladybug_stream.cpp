@@ -20,7 +20,10 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
     std::ifstream file(string_utf8_to_fstream(timestamp));
     std::string line;
 
-    QFileInfoList infos = QDir(QString::fromStdString(dir)).entryInfoList(QStringList() << "*.json");
+    QFileInfoList infos = QDir(QString::fromStdString(dir))
+                              .entryInfoList(QStringList() << "*.jpg"
+                                                           << "*.png"
+                                                           << "*.jpeg");
 
     while (std::getline(file, line) && file.good()) {
         if (line.empty()) {
@@ -34,7 +37,7 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
         {
             std::tm tm_local;
             tm_local.tm_year = year - 1900;
-            tm_local.tm_mon = month;
+            tm_local.tm_mon = month - 1;
             tm_local.tm_mday = day;
             tm_local.tm_hour = hour;
             tm_local.tm_min = minute;
