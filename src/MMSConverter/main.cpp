@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <base/base.h>
 #include <mms/hsr_file.h>
+#include <mms/ladybug_stream.h>
 #include <mms/pos.h>
 
 using namespace h2o;
@@ -22,12 +23,14 @@ int main(int argc, char **argv) {
     std::string mode;
     std::string path_pos;
     std::string path_config;
+    std::string path_pano;
 
     std::vector<double> time_range;
 
     // clang-format off
     options.add_options("MMSConverter")
       ("i,input", "Input file path", cxxopts::value(path_input))
+      ("pano", "Directory of the panorama", cxxopts::value(path_pano))
       ("p,pos", "Path to pos file", cxxopts::value(path_pos))
       ("c,config", "Path to configuration file", cxxopts::value(path_config))
       ("t,time", "Range of UTC time, as --time=1.0,10.0", cxxopts::value(time_range))
@@ -44,6 +47,7 @@ int main(int argc, char **argv) {
     path_input = QFileInfo(QString::fromLocal8Bit(path_input.c_str())).absoluteFilePath().toStdString();
     path_pos = QFileInfo(QString::fromLocal8Bit(path_pos.c_str())).absoluteFilePath().toStdString();
     path_config = QFileInfo(QString::fromLocal8Bit(path_config.c_str())).absoluteFilePath().toStdString();
+    path_pano = QFileInfo(QString::fromLocal8Bit(path_pano.c_str())).absoluteFilePath().toStdString();
 
     Pos pos;
     pos.load_pos(path_pos);
@@ -52,10 +56,19 @@ int main(int argc, char **argv) {
     file.load_pos_filtered(pos, 0.1, time_range);
     file.set_body(path_config);
 
-    std::string name = get_filename_noext(path_input);
-    std::string dir = get_directory(path_input);
-    name = join_paths(dir, name + ".laz");
-    file.export_las(name, pos);
+    if (path_pano.empty()) {
+        std::string name = get_filename_noext(path_input);
+        std::string dir = get_directory(path_input);
+        name = join_paths(dir, name + ".laz");
+        file.export_las(name, pos);
+    } else {
+        std::string pano_id = get_filename(path_pano);
+        std::string dir = path_pano;
+        std::string timestamp = join_paths(dir, pano_id + ".syn");
+
+        LadybugStream stream(dir, pano_id, timestamp, pos);
+        stream.set_body(path_config);
+    }
 
     return 0;
 }
