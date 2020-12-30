@@ -41,10 +41,10 @@ struct LadybugImage {
 
     Vector3d to_local(const Vector3d &world) const;
     Vector3d to_world(const Vector3d &local) const;
-    
+
     Vector2d to_angle(const Vector3d &local) const;
-    
-    bool is_valid(const Vector2d& angle) const;
+
+    bool is_valid(const Vector2d &angle) const;
 };
 
 class LadybugStream {
@@ -76,4 +76,5 @@ protected:
     Cache<uint32_t, cv::Mat, std::mutex> mat_caches_;
 };
 
+using LadybugStreamPtr = std::shared_ptr<LadybugStream>;
 } // namespace h2o

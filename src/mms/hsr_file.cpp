@@ -130,7 +130,7 @@ void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vecto
     hsfile_->closeFile();
 }
 
-void HsrFile::export_las(const std::string &path, const Pos &pos) {
+void HsrFile::export_las(const std::string &path, const Pos &pos, const LadybugStreamPtr&ladybug) {
     tm local_tm;
     {
         using namespace std::chrono;
@@ -159,8 +159,8 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
     header->file_creation_year = local_tm.tm_year + 1900;
     header->header_size = 375;
     header->offset_to_point_data = 375;
-    header->point_data_format = 6;
-    header->point_data_record_length = 30;
+    header->point_data_format = 3;
+    header->point_data_record_length = 33;
     header->number_of_point_records = 0;
     for (int i = 0; i < 5; ++i) {
         header->number_of_points_by_return[i] = 0;
@@ -215,6 +215,7 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
         std::vector<Vector3d> points(nsegments);
         std::vector<uint16_t> intensities(nsegments);
         std::vector<double> gpss(nsegments);
+        std::vector<Vector3b> colors(ladybug == nullptr ? 0 : nsegments);
 
         for (int p = 0; p < nsegments; ++p) {
             double t = gpssecs_[i + p];
@@ -230,6 +231,10 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
             intensities[p] = intensity;
             gpss[p] = t;
 
+            if (ladybug != nullptr) {
+                colors[p] = ladybug->colorize(point);
+            }
+
             bounds.extend(points[p]);
         }
 
@@ -240,6 +245,14 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) {
             laspoint->extended_number_of_returns = 1;
             laspoint->gps_time = gpss[p];
             laspoint->intensity = intensities[p];
+
+            if (ladybug != nullptr) {
+                laspoint->rgb[0] = colors[p].x();
+                laspoint->rgb[1] = colors[p].y();
+                laspoint->rgb[2] = colors[p].z();
+                laspoint->rgb[3] = 255;
+            }
+
             if (laszip_write_point(writer)) {
                 CHECK(false) << "Write point failed!";
             }

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "ladybug_stream.h"
 #include "pos.h"
 
 #include <base/common.h>
@@ -26,7 +27,7 @@ public:
                            const std::vector<double> &rtime = std::vector<double>(),
                            const std::vector<double> &rdist = {1.5, 30.0});
 
-    void export_las(const std::string &path, const Pos &pos);
+    void export_las(const std::string &path, const Pos &pos, const LadybugStreamPtr& ladybug = nullptr);
 
     // to body: X_b = R * X_l + t
     void set_body(const Vector3d &r, const Vector3d &t);

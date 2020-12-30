@@ -73,9 +73,20 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
         image.path = filename;
         image.time = sec_of_day;
         image.type = 1;
-        image.t_world = t_pos;
+        image.t_world = t_pos + pos.get_position_offset();
         image.q_world = R_pos;
+
+        images_.push_back(image);
     }
+
+    MatrixXd camera_positions(3, images_.size());
+    for (int i = 0; i < images_.size(); ++i) {
+        camera_positions(0, i) = images_[i].t_world.x();
+        camera_positions(1, i) = images_[i].t_world.y();
+        camera_positions(2, i) = images_[i].t_world.z();
+    }
+    trajectory_ = camera_positions;
+    kdtree_trajectory_ = std::make_shared<KDTreeTrajectory>(3, trajectory_);
 }
 
 void LadybugStream::set_image_type(int type) {
@@ -116,9 +127,11 @@ void LadybugStream::set_body(const Vector3d &r, const Vector3d &t) {
 Vector3b LadybugStream::colorize(const Vector3d &X) {
     constexpr int K = 5;
     std::vector<Eigen::Index> indices(K);
-    kdtree_trajectory_->query(X.data(), K, indices.data(), nullptr);
-    for (int i = 0; i < K; ++i) {
-        const auto &image = images_.at(i);
+    std::vector<double> radius(K);
+    kdtree_trajectory_->query(X.data(), K, indices.data(), radius.data());
+
+    for (Eigen::Index index : indices) {
+        const auto &image = images_.at(index);
         Vector3d local = image.to_local(X);
         Vector2d angle = image.to_angle(local);
         bool valid = image.is_valid(angle);
@@ -130,11 +143,11 @@ Vector3b LadybugStream::colorize(const Vector3d &X) {
         Vector2d pixel = image.to_pixel(angle);
 
         cv::Mat mat;
-        if (mat_caches_.contains(i)) {
-            mat = mat_caches_.get(i);
+        if (mat_caches_.contains(index)) {
+            mat = mat_caches_.get(index);
         } else {
             mat = cv::imread(string_utf8_to_fstream(image.path), cv::IMREAD_COLOR);
-            mat_caches_.insert(i, mat);
+            mat_caches_.insert(index, mat);
         }
 
         cv::Vec3b color = image_interpolate<cv::Vec3b>(mat, pixel.cast<float>(), cv::BORDER_REPLICATE);
