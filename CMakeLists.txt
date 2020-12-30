@@ -58,6 +58,9 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-unused-result -Wno-ignored-attributes"
   )
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  
+  set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 endif()
 
 if(${H2O_BUILD_DOG})

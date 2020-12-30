@@ -1,6 +1,7 @@
 
 \.vscode/
-
+redist/
+data/
 build/
 build_float/
 build*/
