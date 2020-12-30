@@ -22,8 +22,7 @@ endforeach()
 else()
 h2o_add_library(h2o_mms SOURCES "${SOURCES_SPLINE};${SOURCES}"
  PUBLIC_LINKS h2o_base 
- PRIVATE_LINKS ${CERES_LIBRARIES} ${GeographicLib_LIBRARIES} Laszip::Laszip
- PUBLIC_LINKS HS::RAW HS::RAWCORE HS::ALGORITHM
+ PRIVATE_LINKS ${CERES_LIBRARIES} ${GeographicLib_LIBRARIES} Laszip::Laszip HS::RAW HS::RAWCORE HS::ALGORITHM
 )
 # copy qm files to position
 foreach(FILE IN LISTS "HS::RAW;HS::RAWCORE;HS::ALGORITHM")

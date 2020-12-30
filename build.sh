@@ -9,6 +9,7 @@ cmake -GNinja \
       -DH2O_BUILD_DOG=OFF \
       -DH2O_BUILD_SERIAL=OFF \
       -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
+      -DCMAKE_INSTALL_PREFIX=./install \
       -DCMAKE_SYSROOT=$CONDA_PREFIX/$HOST/sysroot \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
       -DOpenGL_GL_PREFERENCE=LEGACY \

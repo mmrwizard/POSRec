@@ -22,7 +22,7 @@ list(APPEND HSAPIS "RAWCORE")
 list(APPEND HSAPIS "ALGORITHM")
 
 foreach(hsapi ${HSAPIS})
-add_library("HS::${hsapi}" UNKNOWN IMPORTED)
+add_library("HS::${hsapi}" SHARED IMPORTED)
 set_property(TARGET "HS::${hsapi}"  APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_property(TARGET "HS::${hsapi}"  APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 endforeach()
@@ -35,7 +35,8 @@ set_target_properties(
                ${CMAKE_CURRENT_LIST_DIR}/lib/libHsRaw.so
                INTERFACE_INCLUDE_DIRECTORIES
                ${CMAKE_CURRENT_LIST_DIR}/include_linux
-               IMPORTED_GLOBAL TRUE)
+               IMPORTED_GLOBAL TRUE
+               IMPORTED_NO_SONAME TRUE)
 set_target_properties(
     HS::RAWCORE
     PROPERTIES IMPORTED_IMPLIB
@@ -44,7 +45,8 @@ set_target_properties(
                 ${CMAKE_CURRENT_LIST_DIR}/lib/libHsRawCore.so
                 INTERFACE_INCLUDE_DIRECTORIES
                 ${CMAKE_CURRENT_LIST_DIR}/include_linux
-                IMPORTED_GLOBAL TRUE)
+                IMPORTED_GLOBAL TRUE
+                IMPORTED_NO_SONAME TRUE)
 set_target_properties(
     HS::ALGORITHM
     PROPERTIES IMPORTED_IMPLIB
@@ -53,7 +55,8 @@ set_target_properties(
                 ${CMAKE_CURRENT_LIST_DIR}/lib/libHsAlgorithm.so
                 INTERFACE_INCLUDE_DIRECTORIES
                 ${CMAKE_CURRENT_LIST_DIR}/include_linux
-                IMPORTED_GLOBAL TRUE)
+                IMPORTED_GLOBAL TRUE
+                IMPORTED_NO_SONAME TRUE)
 endif()
 
 
