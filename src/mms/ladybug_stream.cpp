@@ -30,7 +30,7 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
             continue;
         }
         int id, year, month, day, hour, minute, sec, millsec;
-        sscanf_s(line.data(), "#C%05d,%d,%d,%d,%d,%d,%d,%d", &id, &year, &month, &day, &hour, &minute, &sec, &millsec);
+        sscanf(line.data(), "#C%05d,%d,%d,%d,%d,%d,%d,%d", &id, &year, &month, &day, &hour, &minute, &sec, &millsec);
         id -= 1;
 
         double sec_of_day;
