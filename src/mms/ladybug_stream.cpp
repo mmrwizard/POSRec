@@ -79,6 +79,9 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
         images_.push_back(image);
     }
 
+    //
+    // debug_trajectory();
+
     MatrixXd camera_positions(3, images_.size());
     for (int i = 0; i < images_.size(); ++i) {
         camera_positions(0, i) = images_[i].t_world.x();
@@ -155,6 +158,16 @@ Vector3b LadybugStream::colorize(const Vector3d &X) {
     }
 
     return Vector3b(0, 0, 0);
+}
+
+void LadybugStream::debug_trajectory() {
+    std::ofstream ofile("C:\\Users\\huhan\\Documents\\Data\\MMS\\pano\\trajectory.txt");
+    for (const auto &image : images_) {
+        ofile << string_printf("%.3lf,", image.t_world.x());
+        ofile << string_printf("%.3lf,", image.t_world.y());
+        ofile << string_printf("%.3lf,", image.t_world.z());
+        ofile << string_printf("%.3lf\n", image.time);
+    }
 }
 
 Vector2d LadybugImage::to_pixel(const Vector2d &angle) const {

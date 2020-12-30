@@ -160,7 +160,7 @@ void HsrFile::export_las(const std::string &path, const Pos &pos, const LadybugS
     header->header_size = 375;
     header->offset_to_point_data = 375;
     header->point_data_format = 3;
-    header->point_data_record_length = 33;
+    header->point_data_record_length = 34;
     header->number_of_point_records = 0;
     for (int i = 0; i < 5; ++i) {
         header->number_of_points_by_return[i] = 0;

@@ -62,6 +62,9 @@ public:
     Vector3b colorize(const Vector3d &X);
 
 protected:
+    void debug_trajectory();
+
+protected:
     const Pos &pos_;
 
     std::vector<LadybugImage> images_;
