@@ -49,11 +49,9 @@ int main(int argc, char **argv) {
     Pos pos;
     pos.load_pos(path_pos);
 
-    HsrFile::HsrFileConfig config = HsrFile::load_config(path_config);
-
     if (path_pano.empty()) {
         HsrFile file(path_input);
-        file.set_config(config);
+        file.set_config(path_config);
         file.set_body(path_config);
 
         std::string name = get_filename_noext(path_input);
@@ -67,14 +65,16 @@ int main(int argc, char **argv) {
 
         LadybugStreamPtr stream = std::make_shared<LadybugStream>(dir, pano_id, timestamp, pos);
         stream->set_body(path_config);
+        stream->set_image_type(path_config);
 
         HsrFile file(path_input);
-        file.load_with_pos(pos);
         file.set_body(path_config);
+        file.set_config(path_config);
 
         std::string name = get_filename_noext(path_input);
         dir = get_directory(path_input);
         name = join_paths(dir, name + ".laz");
+        file.export_colored_las_ooc(name, pos, stream);
     }
 
     return 0;

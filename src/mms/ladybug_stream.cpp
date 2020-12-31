@@ -17,6 +17,9 @@ namespace h2o {
 LadybugStream::LadybugStream(const std::string &dir, const std::string &name, const std::string &timestamp,
                              const Pos &pos)
     : pos_(pos) {
+
+    mat_caches_ = std::make_shared<CacheImages>();
+
     std::ifstream file(string_utf8_to_fstream(timestamp));
     std::string line;
 
@@ -98,6 +101,16 @@ void LadybugStream::set_image_type(int type) {
     }
 }
 
+void LadybugStream::set_image_type(const std::string &path) {
+    nlohmann::json j = read_json_file(path);
+    if (!j.count("Pano")) {
+        return;
+    }
+    j = j["Pano"];
+    int type = j["ImageType"];
+    set_image_type(type);
+}
+
 void LadybugStream::set_body(const std::string &path) {
     nlohmann::json j = read_json_file(path);
     if (!j.count("Pano")) {
@@ -127,13 +140,12 @@ void LadybugStream::set_body(const Vector3d &r, const Vector3d &t) {
     }
 }
 
-Vector3b LadybugStream::colorize(const Vector3d &X) {
-    constexpr int K = 5;
-    std::vector<Eigen::Index> indices(K);
-    std::vector<double> radius(K);
-    kdtree_trajectory_->query(X.data(), K, indices.data(), radius.data());
+Vector3b LadybugStream::colorize_on_images(const Vector3d &X, const std::vector<uint32_t> &images) const {
+    for (Eigen::Index index : images) {
+        if (!mat_caches_->contains(index)) {
+            continue;
+        }
 
-    for (Eigen::Index index : indices) {
         const auto &image = images_.at(index);
         Vector3d local = image.to_local(X);
         Vector2d angle = image.to_angle(local);
@@ -145,19 +157,22 @@ Vector3b LadybugStream::colorize(const Vector3d &X) {
 
         Vector2d pixel = image.to_pixel(angle);
 
-        cv::Mat mat;
-        if (mat_caches_.contains(index)) {
-            mat = mat_caches_.get(index);
-        } else {
-            mat = cv::imread(string_utf8_to_fstream(image.path), cv::IMREAD_COLOR);
-            mat_caches_.insert(index, mat);
-        }
+        cv::Mat mat = mat_caches_->get(index);
 
         cv::Vec3b color = image_interpolate<cv::Vec3b>(mat, pixel.cast<float>(), cv::BORDER_REPLICATE);
         return Vector3b(color[2], color[1], color[0]);
     }
 
-    return Vector3b(0, 0, 0);
+    return Vector3b::Zero();
+}
+
+void LadybugStream::cache_images(const std::vector<uint32_t> &images) {
+    for (uint32_t index : images) {
+        if (!mat_caches_->contains(index)) {
+            cv::Mat mat = cv::imread(string_utf8_to_fstream(images_.at(index).path), cv::IMREAD_COLOR);
+            mat_caches_->insert(index, mat);
+        }
+    }
 }
 
 void LadybugStream::debug_trajectory() {

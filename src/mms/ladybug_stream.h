@@ -53,13 +53,19 @@ public:
 
     // 0 - sphere, 1 - cylinder
     void set_image_type(int type);
+    void set_image_type(const std::string& path);
 
     // 设置到 imu 坐标系的旋转平移
     void set_body(const std::string &path);
     void set_body(const Vector3d &r, const Vector3d &t);
 
-    // 找到最近的测站，并投影
-    Vector3b colorize(const Vector3d &X);
+    // 在指定的影像上着色，不能读取新数据
+    Vector3b colorize_on_images(const Vector3d &X, const std::vector<uint32_t> &images) const;
+
+    // 存储这些影像
+    void cache_images(const std::vector<uint32_t> &images);
+
+    auto get_image_infos() const { return images_; }
 
 protected:
     void debug_trajectory();
@@ -76,7 +82,8 @@ protected:
     MatrixXd trajectory_;
     std::shared_ptr<KDTreeTrajectory> kdtree_trajectory_;
 
-    Cache<uint32_t, cv::Mat, std::mutex> mat_caches_;
+    using CacheImages = Cache<uint32_t, cv::Mat, std::mutex>;
+    std::shared_ptr<CacheImages> mat_caches_;
 };
 
 using LadybugStreamPtr = std::shared_ptr<LadybugStream>;

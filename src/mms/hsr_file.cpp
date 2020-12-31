@@ -81,11 +81,7 @@ void HsrFile::load() {
                 double gpstime = hspoints[i][j].lfGpsSec;
                 double range = hspoints[i][j].lfRange;
 
-                if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
-                    continue;
-                }
-
-                if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
+                if (!is_point_good(range, gpstime)) {
                     continue;
                 }
 
@@ -123,18 +119,9 @@ void HsrFile::load_with_pos(const Pos &pos) {
             for (int j = 0; j < hspoints[i].size(); ++j) {
                 double gpstime = hspoints[i][j].lfGpsSec;
                 double range = hspoints[i][j].lfRange;
-
-                if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
-                    continue;
-                }
-
-                if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
-                    continue;
-                }
-
                 double speed = pos.get_speed(gpstime);
-                // 最低速度 1m/s
-                if (speed < config_.speed) {
+
+                if (!is_point_good(range, gpstime, speed)) {
                     continue;
                 }
 
@@ -236,7 +223,6 @@ void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {
         CHECK(false) << "Create lasfile failed";
     }
 
-
     while (!hsfile_->getRingData(hspoints)) {
         std::vector<Vector3d> points;
         std::vector<uint16_t> intensities;
@@ -246,18 +232,9 @@ void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {
             for (int j = 0; j < hspoints[i].size(); ++j) {
                 double gpstime = hspoints[i][j].lfGpsSec;
                 double range = hspoints[i][j].lfRange;
-
-                if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
-                    continue;
-                }
-
-                if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
-                    continue;
-                }
-
                 double speed = pos.get_speed(gpstime);
-                // 最低速度 1m/s
-                if (speed < config_.speed) {
+
+                if (!is_point_good(range, gpstime, speed)) {
                     continue;
                 }
 
@@ -302,6 +279,121 @@ void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {
     laszip_destroy(writer);
 }
 
+void HsrFile::export_colored_las_ooc(const std::string &path, const Pos &pos, const LadybugStreamPtr &ladybug) const {
+    std::vector<LadybugImage> images = ladybug->get_image_infos();
+    if (images.empty()) {
+        return;
+    }
+    // 存储每个影像包含的点云影像时间，往后面内插半个曝光间隔
+    std::vector<double> timestamps(images.size());
+    for (int i = 0; i < images.size(); ++i) {
+        double t0 = images[i].time;
+        double t1 = i == images.size() - 1 ? images.back().time + 100 : images[i + 1].time;
+        timestamps[i] = (t0 + t1) / 2.0;
+    }
+
+    Vector2d rintensity = get_intensity_range();
+    double scale = 1.0 / rintensity.norm();
+
+    CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
+
+    BoundingBox3d bounds = pos.get_bounds();
+    Vector3d offset = pos.get_position_offset();
+
+    laszip_POINTER writer = create_lasfile_header(path, offset, bounds);
+    laszip_point *laspoint;
+    if (laszip_get_point_pointer(writer, &laspoint)) {
+        CHECK(false) << "Create lasfile failed";
+    }
+
+    for (int index = 0; index < timestamps.size(); ++index) {
+        // 缓存前后
+        std::vector<uint32_t> caches;
+        for (int offset : {0, 1, -1, 2, -2}) {
+            int current = offset + index;
+            if (current >= 0 && current < timestamps.size()) {
+                caches.push_back(uint32_t(current));
+            }
+        }
+
+        ladybug->cache_images(caches);
+
+        std::vector<std::vector<HSPoint>> hspoints;
+        bool exceed_time = false;
+
+        while (!hsfile_->getRingData(hspoints)) {
+            std::vector<Vector3d> points;
+            std::vector<uint16_t> intensities;
+            std::vector<double> gpss;
+            std::vector<Vector3b> colors;
+
+            for (const auto &ring : hspoints) {
+                for (const auto &hspoint : ring) {
+                    double gpstime = hspoint.lfGpsSec;
+                    double range = hspoint.lfRange;
+                    double speed = pos.get_speed(gpstime);
+
+                    if (gpstime > timestamps[index]) {
+                        exceed_time = true;
+                    }
+
+                    if (!is_point_good(range, gpstime, speed)) {
+                        continue;
+                    }
+
+                    auto [t_pos, R_pos] = pos.getd(gpstime);
+
+                    Vector3d point(hspoint.pt.x, hspoint.pt.y, hspoint.pt.z);
+                    uint16_t intensity = hspoint.nReflection;
+
+                    point = R_pos * (R_body * point + t_body) + t_pos;
+                    point += offset;
+
+                    double value = (intensity - rintensity.x()) * scale;
+                    value = clip<double>(value * 65535, 0, 65535);
+                    intensity = floor(value);
+
+                    Vector3b color = ladybug->colorize_on_images(point, caches);
+
+                    gpss.push_back(gpstime);
+                    points.push_back(point);
+                    intensities.push_back(intensity);
+                    colors.push_back(color);
+                }
+            }
+
+            for (int p = 0; p < points.size(); ++p) {
+                laszip_set_coordinates(writer, points[p].data());
+                laspoint->classification = 0;
+                laspoint->extended_return_number = 1;
+                laspoint->extended_number_of_returns = 1;
+                laspoint->gps_time = gpss[p];
+                laspoint->intensity = intensities[p];
+
+                laspoint->rgb[0] = colors[p].x();
+                laspoint->rgb[1] = colors[p].y();
+                laspoint->rgb[2] = colors[p].z();
+
+                if (laszip_update_inventory(writer)) {
+                    CHECK(false) << "Write point failed!";
+                }
+
+                if (laszip_write_point(writer)) {
+                    CHECK(false) << "Write point failed!";
+                }
+            }
+
+            if (exceed_time) {
+                break;
+            }
+        }
+    }
+
+    hsfile_->closeFile();
+    laszip_close_writer(writer);
+    laszip_destroy(writer);
+}
+
 void HsrFile::set_body(const Vector3d &r, const Vector3d &t) {
     R_body = Pos::ypr_to_rotation(r(0), r(1), r(2));
     t_body = t;
@@ -325,6 +417,11 @@ void HsrFile::set_body(const std::string &config) {
     r(2) = j["Roll"].get<double>() * DEG2RAD;
 
     set_body(r, t);
+}
+
+void HsrFile::set_config(const std::string &path) {
+    auto config = HsrFile::load_config(path);
+    this->set_config(config);
 }
 
 laszip_POINTER HsrFile::create_lasfile_header(const string &path, const Vector3d &offset,
@@ -432,6 +529,22 @@ Vector2d HsrFile::get_intensity_range() const {
 
     hsfile_->closeFile();
     return Vector2d(clip_min, clip_max);
+}
+
+bool HsrFile::is_point_good(double range, double gpstime, double speed) const {
+    if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
+        return false;
+    }
+
+    if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
+        return false;
+    }
+
+    if (speed < config_.speed) {
+        return false;
+    }
+
+    return true;
 }
 
 std::tuple<Quaterniond, Vector3d> HsrFile::read_lidar_body(const std::string &path) {
