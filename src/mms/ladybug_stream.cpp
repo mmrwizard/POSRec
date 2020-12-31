@@ -188,11 +188,13 @@ void LadybugStream::debug_trajectory() {
 Vector2d LadybugImage::to_pixel(const Vector2d &angle) const {
     constexpr double m_1_pi = 0.318309886183790671538; // 1 / pi
     Vector2d uv;
-    uv.x() = angle.x() * height * m_1_pi + height;
+
     if (type == 0) {
+        uv.x() = 2.0 * height - angle.x() * height * m_1_pi;
         // 范围为 [-pi/2, pi/2]
         uv.y() = 0.5 * height - angle.y() * height * m_1_pi;
     } else if (type == 1) {
+        uv.x() = angle.x() * height * m_1_pi + height;
         // 范围为 [-pi/4, pi/4]
         uv.y() = 0.5 * height - angle.y() * 0.5 * height;
     }
@@ -231,6 +233,7 @@ Vector2d LadybugImage::to_angle(const Vector3d &local) const {
     angle.x() = atan2(local.y(), local.x());
 
     if (type == 0) {
+        angle.x() += angle.x() < 0 ? 2.0 * M_PI : 0.0;
         angle.y() = asin(local.z() / r);
     } else if (type == 1) {
         double r2 = local.head(2).norm();
