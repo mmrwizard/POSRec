@@ -10,7 +10,7 @@
 #include <base/base.h>
 
 namespace h2o {
-Pos::Pos() {}
+Pos::Pos(const std::string &path) { load_pos(path); }
 
 void Pos::load_pos(const std::string &path) {
     std::vector<double> gpstime;

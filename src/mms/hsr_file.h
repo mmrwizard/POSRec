@@ -14,24 +14,45 @@
 
 class HsRawiLSP;
 
+using laszip_POINTER = void *;
+
 namespace h2o {
 class HsrFile {
+public:
+    struct HsrFileConfig {
+        double speed = 1.0;
+        std::vector<double> rtime;
+        std::vector<double> rdist = {1.5, 30.0};
+
+        std::string wkt;
+    };
+    static HsrFileConfig load_config(const std::string &path);
+
 public:
     HsrFile(const std::string &path);
     ~HsrFile();
 
     // 获取文件获取的实践，点云数据存储的是 UTC 天内秒，
     std::tm get_file_date();
-    void load();
-    void load_pos_filtered(const Pos &pos, double t_speed = 1.0,
-                           const std::vector<double> &rtime = std::vector<double>(),
-                           const std::vector<double> &rdist = {1.5, 30.0});
 
-    void export_las(const std::string &path, const Pos &pos, const LadybugStreamPtr& ladybug = nullptr);
+    // 把 HSR 文件全部读入内存
+    void load();
+    // 把 HSR 文件全部读入内存，同时输入 POS 信息可判断速度信息
+    void load_with_pos(const Pos &pos);
+
+    // 导出点云数据，需要把所有信息都先读入内存
+    void export_las(const std::string &path, const Pos &pos) const;
+
+    // 采用 out-of-core 方式，不需全部读入内存，直接导出
+    void export_las_ooc(const std::string &path, const Pos &pos) const;
 
     // to body: X_b = R * X_l + t
     void set_body(const Vector3d &r, const Vector3d &t);
     void set_body(const std::string &config);
+
+protected:
+    laszip_POINTER create_lasfile_header(const std::string &path, const Vector3d &offset,
+                                         const BoundingBox3d &bounds) const;
 
 public:
     static std::tuple<Quaterniond, Vector3d> read_lidar_body(const std::string &path);
@@ -44,14 +65,13 @@ protected:
     std::string path_;
     std::shared_ptr<HsRawiLSP> hsfile_;
 
-    std::string wkt_;
-
     std::vector<Vector3f> points_;
-    std::vector<float> ranges_;
     std::vector<uint16_t> intens_;
     std::vector<double> gpssecs_;
 
     std::vector<uint8_t> header;
+
+    HsrFileConfig config_;
 };
 
 } // namespace h2o

@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
 
     if (path_pano.empty()) {
         HsrFile file(path_input);
-        file.load_pos_filtered(pos, 0.1, time_range);
+        file.load_with_pos(pos);
         file.set_body(path_config);
 
         std::string name = get_filename_noext(path_input);
@@ -70,13 +70,12 @@ int main(int argc, char **argv) {
         stream->set_body(path_config);
 
         HsrFile file(path_input);
-        file.load_pos_filtered(pos, 0.1, time_range);
+        file.load_with_pos(pos);
         file.set_body(path_config);
 
         std::string name = get_filename_noext(path_input);
         dir = get_directory(path_input);
         name = join_paths(dir, name + ".laz");
-        file.export_las(name, pos, stream);
     }
 
     return 0;

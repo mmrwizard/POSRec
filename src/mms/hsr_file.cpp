@@ -12,6 +12,31 @@
 #include <laszip/laszip_api.h>
 
 namespace h2o {
+HsrFile::HsrFileConfig HsrFile::load_config(const string &path) {
+    HsrFile::HsrFileConfig config;
+
+    nlohmann::json j = read_json_file(path);
+    if (!j.count("HsrFileConfig")) {
+        return config;
+    }
+
+    j = j["HsrFileConfig"];
+    if (j.count("Speed")) {
+        config.speed = j["Speed"];
+    }
+    if (j.count("RangeTime")) {
+        config.rtime = j["RangeTime"].get<std::vector<double>>();
+    }
+    if (j.count("RangeDist")) {
+        config.rdist = j["RangeDist"].get<std::vector<double>>();
+    }
+    if (j.count("WKT")) {
+        config.wkt = j["WKT"].get<std::string>();
+    }
+
+    return config;
+}
+
 HsrFile::HsrFile(const std::string &path) : path_(path) {
     header.resize(1024);
     {
@@ -38,9 +63,9 @@ std::tm HsrFile::get_file_date() {
     cpptm.tm_year = hstime.Year - 1900;
     cpptm.tm_mon = hstime.Month - 1;
     cpptm.tm_mday = hstime.Day - 1;
-    cpptm.tm_hour = hstime.Hour - 1;
-    cpptm.tm_min = hstime.Minute - 1;
-    cpptm.tm_sec = hstime.Second - 1;
+    cpptm.tm_hour = hstime.Hour;
+    cpptm.tm_min = hstime.Minute;
+    cpptm.tm_sec = hstime.Second;
 
     return cpptm;
 }
@@ -53,10 +78,19 @@ void HsrFile::load() {
     while (!hsfile_->getRingData(hspoints)) {
         for (int i = 0; i < hspoints.size(); ++i) {
             for (int j = 0; j < hspoints[i].size(); ++j) {
-                points_.push_back(Vector3f(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z));
-                ranges_.push_back(hspoints[i][j].lfRange);
-                intens_.push_back(hspoints[i][j].nReflection);
+                double gpstime = hspoints[i][j].lfGpsSec;
+                double range = hspoints[i][j].lfRange;
 
+                if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
+                    continue;
+                }
+
+                if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
+                    continue;
+                }
+
+                points_.push_back(Vector3f(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z));
+                intens_.push_back(hspoints[i][j].nReflection);
                 gpssecs_.push_back(hspoints[i][j].lfGpsSec);
             }
         }
@@ -79,8 +113,7 @@ void HsrFile::load() {
     hsfile_->closeFile();
 }
 
-void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vector<double> &rtime,
-                                const std::vector<double> &rdist) {
+void HsrFile::load_with_pos(const Pos &pos) {
     CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
 
     std::vector<std::vector<HSPoint>> hspoints;
@@ -91,23 +124,22 @@ void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vecto
                 double gpstime = hspoints[i][j].lfGpsSec;
                 double range = hspoints[i][j].lfRange;
 
-                if (rtime.size() == 2 && (gpstime < rtime[0] || gpstime > rtime[1])) {
+                if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
                     continue;
                 }
 
-                if (rdist.size() == 2 && (range < rdist[0] || range > rdist[1])) {
+                if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
                     continue;
                 }
 
                 double speed = pos.get_speed(gpstime);
                 // 最低速度 1m/s
-                if (speed < t_speed) {
+                if (speed < config_.speed) {
                     continue;
                 }
 
                 gpssecs_.push_back(hspoints[i][j].lfGpsSec);
                 points_.push_back(Vector3f(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z));
-                ranges_.push_back(hspoints[i][j].lfRange);
                 intens_.push_back(hspoints[i][j].nReflection);
             }
         }
@@ -130,92 +162,23 @@ void HsrFile::load_pos_filtered(const Pos &pos, double t_speed, const std::vecto
     hsfile_->closeFile();
 }
 
-void HsrFile::export_las(const std::string &path, const Pos &pos, const LadybugStreamPtr&ladybug) {
-    tm local_tm;
-    {
-        using namespace std::chrono;
-        auto now = std::chrono::system_clock::now();
-        time_t tt = system_clock::to_time_t(now);
-        local_tm = *localtime(&tt);
-    }
-
+void HsrFile::export_las(const std::string &path, const Pos &pos) const {
     BoundingBox3d bounds = pos.get_bounds();
     Vector3d offset = pos.get_position_offset();
 
-    laszip_POINTER writer;
-    laszip_create(&writer);
-
-    laszip_BOOL compress = (strstr(path.c_str(), ".laz") != 0);
-
-    laszip_header *header;
-    laszip_get_header_pointer(writer, &header);
-
-    header->file_source_ID = 4711;
-    header->global_encoding = (1 << 0) | (1 << 4); // see LAS specification for details
-    header->version_major = 1;
-    header->version_minor = 4;
-    strncpy(header->system_identifier, "LInSAR", 32);
-    header->file_creation_day = local_tm.tm_yday;
-    header->file_creation_year = local_tm.tm_year + 1900;
-    header->header_size = 375;
-    header->offset_to_point_data = 375;
-    header->point_data_format = 3;
-    header->point_data_record_length = 34;
-    header->number_of_point_records = 0;
-    for (int i = 0; i < 5; ++i) {
-        header->number_of_points_by_return[i] = 0;
-    }
-    header->extended_number_of_point_records = points_.size();
-    header->extended_number_of_points_by_return[0] = points_.size();
-    header->x_scale_factor = 0.001;
-    header->y_scale_factor = 0.001;
-    header->z_scale_factor = 0.001;
-    header->x_offset = offset.x();
-    header->y_offset = offset.y();
-    header->z_offset = offset.z();
-    header->min_x = bounds.min().x();
-    header->min_y = bounds.min().y();
-    header->min_z = bounds.min().z();
-    header->max_x = bounds.max().x();
-    header->max_y = bounds.max().y();
-    header->max_z = bounds.max().z();
-
-    laszip_auto_offset(writer);
-
-    if (!wkt_.empty()) {
-        CHECK(wkt_.size() < 2048);
-        uint8_t *data = new uint8_t[2048];
-        memcpy(data, wkt_.c_str(), wkt_.size());
-        data[wkt_.size() + 1] = '\0';
-        if (laszip_add_vlr(writer, "LASF_Projection", 2112, wkt_.size() + 1, "OGC Transformation Record", data)) {
-            char *err;
-            laszip_get_error(writer, &err);
-            CHECK(false) << err;
-        }
-    }
-
-    if (laszip_open_writer(writer, string_utf8_to_fstream(path).c_str(), compress)) {
-        char *err;
-        laszip_get_error(writer, &err);
-        CHECK(false) << err;
-    };
-
+    laszip_POINTER writer = create_lasfile_header(path, offset, bounds);
     laszip_point *laspoint;
     if (laszip_get_point_pointer(writer, &laspoint)) {
-        char *err;
-        laszip_get_error(writer, &err);
-        CHECK(false) << err;
+        CHECK(false) << "Create lasfile failed";
     }
 
     constexpr int NSEG = 1e7;
     for (int i = 0; i < points_.size(); i += NSEG) {
-
         int nsegments = std::min(NSEG, (int)points_.size() - i);
 
         std::vector<Vector3d> points(nsegments);
         std::vector<uint16_t> intensities(nsegments);
         std::vector<double> gpss(nsegments);
-        std::vector<Vector3b> colors(ladybug == nullptr ? 0 : nsegments);
 
         for (int p = 0; p < nsegments; ++p) {
             double t = gpssecs_[i + p];
@@ -231,10 +194,6 @@ void HsrFile::export_las(const std::string &path, const Pos &pos, const LadybugS
             intensities[p] = intensity;
             gpss[p] = t;
 
-            if (ladybug != nullptr) {
-                colors[p] = ladybug->colorize(point);
-            }
-
             bounds.extend(points[p]);
         }
 
@@ -246,29 +205,18 @@ void HsrFile::export_las(const std::string &path, const Pos &pos, const LadybugS
             laspoint->gps_time = gpss[p];
             laspoint->intensity = intensities[p];
 
-            if (ladybug != nullptr) {
-                laspoint->rgb[0] = colors[p].x();
-                laspoint->rgb[1] = colors[p].y();
-                laspoint->rgb[2] = colors[p].z();
-                laspoint->rgb[3] = 255;
-            }
-
+            laszip_update_inventory(writer);
             if (laszip_write_point(writer)) {
                 CHECK(false) << "Write point failed!";
             }
         }
     }
 
-    header->min_x = bounds.min().x();
-    header->min_y = bounds.min().y();
-    header->min_z = bounds.min().z();
-    header->max_x = bounds.max().x();
-    header->max_y = bounds.max().y();
-    header->max_z = bounds.max().z();
-
     laszip_close_writer(writer);
     laszip_destroy(writer);
 }
+
+void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {}
 
 void HsrFile::set_body(const Vector3d &r, const Vector3d &t) {
     R_body = Pos::ypr_to_rotation(r(0), r(1), r(2));
@@ -293,6 +241,83 @@ void HsrFile::set_body(const std::string &config) {
     r(2) = j["Roll"].get<double>() * DEG2RAD;
 
     set_body(r, t);
+}
+
+laszip_POINTER HsrFile::create_lasfile_header(const string &path, const Vector3d &offset,
+                                              const BoundingBox3d &bounds) const {
+    tm local_tm;
+    {
+        using namespace std::chrono;
+        auto now = std::chrono::system_clock::now();
+        time_t tt = system_clock::to_time_t(now);
+        local_tm = *localtime(&tt);
+    }
+
+    laszip_POINTER writer;
+    laszip_create(&writer);
+
+    laszip_BOOL compress = (strstr(path.c_str(), ".laz") != 0);
+
+    laszip_header *header;
+    laszip_get_header_pointer(writer, &header);
+
+    header->file_source_ID = 4711;
+    header->global_encoding = (1 << 0) | (1 << 4); // see LAS specification for details
+    header->version_major = 1;
+    header->version_minor = 4;
+    strncpy(header->system_identifier, "H2O MMS", 32);
+    strncpy(header->generating_software, "H2O MMSConvert", 32);
+
+    header->file_creation_day = local_tm.tm_yday;
+    header->file_creation_year = local_tm.tm_year + 1900;
+    header->header_size = 375;
+    header->offset_to_point_data = 375;
+    header->point_data_format = 3;
+    header->point_data_record_length = 34;
+    header->number_of_point_records = 0;
+    for (int i = 0; i < 5; ++i) {
+        header->number_of_points_by_return[i] = 0;
+    }
+    header->extended_number_of_point_records = 0;
+    header->extended_number_of_points_by_return[0] = 0;
+
+    header->x_scale_factor = 0.001;
+    header->y_scale_factor = 0.001;
+    header->z_scale_factor = 0.001;
+
+    header->x_offset = offset.x();
+    header->y_offset = offset.y();
+    header->z_offset = offset.z();
+
+    header->min_x = bounds.min().x();
+    header->min_y = bounds.min().y();
+    header->min_z = bounds.min().z();
+    header->max_x = bounds.max().x();
+    header->max_y = bounds.max().y();
+    header->max_z = bounds.max().z();
+
+    laszip_auto_offset(writer);
+
+    if (!config_.wkt.empty()) {
+        CHECK(config_.wkt.size() < 2048);
+        uint8_t *data = new uint8_t[2048];
+        memcpy(data, config_.wkt.c_str(), config_.wkt.size());
+        data[config_.wkt.size() + 1] = '\0';
+        if (laszip_add_vlr(writer, "LASF_Projection", 2112, config_.wkt.size() + 1, "OGC Transformation Record",
+                           data)) {
+            char *err;
+            laszip_get_error(writer, &err);
+            CHECK(false) << err;
+        }
+    }
+
+    if (laszip_open_writer(writer, string_utf8_to_fstream(path).c_str(), compress)) {
+        char *err;
+        laszip_get_error(writer, &err);
+        CHECK(false) << err;
+    };
+
+    return writer;
 }
 
 std::tuple<Quaterniond, Vector3d> HsrFile::read_lidar_body(const std::string &path) {

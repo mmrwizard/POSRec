@@ -15,7 +15,8 @@ class Geocentric;
 namespace h2o {
 class Pos {
 public:
-    Pos();
+    Pos(const std::string &path);
+    Pos() = default;
 
     void load_pos(const std::string &path);
     std::tuple<Vector3d, Matrix3d> getd(double gpstime) const;
@@ -24,7 +25,6 @@ public:
 
     Vector3d get_position_offset() const { return position_offset_; }
     BoundingBox3d get_bounds() const;
-
 
 public:
     static Matrix3d ypr_to_rotation(double yaw, double pitch, double roll);
