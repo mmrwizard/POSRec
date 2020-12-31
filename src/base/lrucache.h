@@ -1,4 +1,4 @@
-﻿/*
+/*
  * LRUCache11 - a templated C++11 based LRU cache class that allows
  * specification of
  * key, value and optionally the map container type (defaults to

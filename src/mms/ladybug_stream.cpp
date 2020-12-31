@@ -209,7 +209,7 @@ Vector2d LadybugImage::to_angle(const Vector3d &local) const {
     angle.x() = atan2(local.y(), local.x());
 
     if (type == 0) {
-        angle.y() = acos(local.z() / r);
+        angle.y() = asin(local.z() / r);
     } else if (type == 1) {
         double r2 = local.head(2).norm();
         angle.y() = local.z() / r2;
