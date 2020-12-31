@@ -50,9 +50,12 @@ public:
     void set_body(const Vector3d &r, const Vector3d &t);
     void set_body(const std::string &config);
 
+    void set_config(const HsrFileConfig &config) { config_ = config; }
+
 protected:
     laszip_POINTER create_lasfile_header(const std::string &path, const Vector3d &offset,
                                          const BoundingBox3d &bounds) const;
+    Vector2d get_intensity_range() const;
 
 public:
     static std::tuple<Quaterniond, Vector3d> read_lidar_body(const std::string &path);

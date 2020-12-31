@@ -205,7 +205,10 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) const {
             laspoint->gps_time = gpss[p];
             laspoint->intensity = intensities[p];
 
-            laszip_update_inventory(writer);
+            if (laszip_update_inventory(writer)) {
+                CHECK(false) << "Write point failed!";
+            }
+
             if (laszip_write_point(writer)) {
                 CHECK(false) << "Write point failed!";
             }
@@ -216,7 +219,88 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) const {
     laszip_destroy(writer);
 }
 
-void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {}
+void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {
+    Vector2d rintensity = get_intensity_range();
+    double scale = 1.0 / rintensity.norm();
+
+    CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
+
+    std::vector<std::vector<HSPoint>> hspoints;
+
+    BoundingBox3d bounds = pos.get_bounds();
+    Vector3d offset = pos.get_position_offset();
+
+    laszip_POINTER writer = create_lasfile_header(path, offset, bounds);
+    laszip_point *laspoint;
+    if (laszip_get_point_pointer(writer, &laspoint)) {
+        CHECK(false) << "Create lasfile failed";
+    }
+
+
+    while (!hsfile_->getRingData(hspoints)) {
+        std::vector<Vector3d> points;
+        std::vector<uint16_t> intensities;
+        std::vector<double> gpss;
+
+        for (int i = 0; i < hspoints.size(); ++i) {
+            for (int j = 0; j < hspoints[i].size(); ++j) {
+                double gpstime = hspoints[i][j].lfGpsSec;
+                double range = hspoints[i][j].lfRange;
+
+                if (config_.rtime.size() == 2 && (gpstime < config_.rtime[0] || gpstime > config_.rtime[1])) {
+                    continue;
+                }
+
+                if (config_.rdist.size() == 2 && (range < config_.rdist[0] || range > config_.rdist[1])) {
+                    continue;
+                }
+
+                double speed = pos.get_speed(gpstime);
+                // 最低速度 1m/s
+                if (speed < config_.speed) {
+                    continue;
+                }
+
+                auto [t_pos, R_pos] = pos.getd(gpstime);
+
+                Vector3d point(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z);
+                uint16_t intensity = hspoints[i][j].nReflection;
+
+                point = R_pos * (R_body * point + t_body) + t_pos;
+                point += offset;
+
+                double value = (intensity - rintensity.x()) * scale;
+                value = clip<double>(value * 65535, 0, 65535);
+                intensity = floor(value);
+
+                gpss.push_back(gpstime);
+                points.push_back(point);
+                intensities.push_back(intensity);
+            }
+        }
+
+        for (int p = 0; p < points.size(); ++p) {
+            laszip_set_coordinates(writer, points[p].data());
+            laspoint->classification = 0;
+            laspoint->extended_return_number = 1;
+            laspoint->extended_number_of_returns = 1;
+            laspoint->gps_time = gpss[p];
+            laspoint->intensity = intensities[p];
+
+            if (laszip_update_inventory(writer)) {
+                CHECK(false) << "Write point failed!";
+            }
+
+            if (laszip_write_point(writer)) {
+                CHECK(false) << "Write point failed!";
+            }
+        }
+    }
+
+    hsfile_->closeFile();
+    laszip_close_writer(writer);
+    laszip_destroy(writer);
+}
 
 void HsrFile::set_body(const Vector3d &r, const Vector3d &t) {
     R_body = Pos::ypr_to_rotation(r(0), r(1), r(2));
@@ -318,6 +402,36 @@ laszip_POINTER HsrFile::create_lasfile_header(const string &path, const Vector3d
     };
 
     return writer;
+}
+
+Vector2d HsrFile::get_intensity_range() const {
+    CHECK(hsfile_->openFile(string_utf8_to_fstream(path_)));
+
+    std::vector<double> values;
+
+    std::vector<std::vector<HSPoint>> hspoints;
+    constexpr int num_sufficient = 1e6; // 100 万点
+
+    while (!hsfile_->getRingData(hspoints)) {
+        for (int i = 0; i < hspoints.size(); ++i) {
+            for (int j = 0; j < hspoints[i].size(); ++j) {
+                values.push_back(hspoints[i][j].nReflection);
+            }
+        }
+        if (values.size() > num_sufficient) {
+            break;
+        }
+    }
+
+    double clip_min, clip_max;
+    clip_min = percentile(values, 5);
+    clip_max = percentile(values, 95);
+
+    clip_min = std::max(0.0, clip_min);
+    clip_max = std::min(clip_max, 65535.0);
+
+    hsfile_->closeFile();
+    return Vector2d(clip_min, clip_max);
 }
 
 std::tuple<Quaterniond, Vector3d> HsrFile::read_lidar_body(const std::string &path) {
