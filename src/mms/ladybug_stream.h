@@ -24,10 +24,10 @@ struct LadybugImage {
     double time = 0.0;
     double radius = 20.0;
 
-    Quaterniond q_world;
-    Vector3d t_world;
-    Quaterniond q_body;
-    Vector3d t_body;
+    Quaterniond q_world = Quaterniond::Identity();
+    Vector3d t_world = Vector3d::Zero();
+    Quaterniond q_body = Quaterniond::Identity();
+    Vector3d t_body = Vector3d::Zero();
 
     std::string path;
 
@@ -53,7 +53,7 @@ public:
 
     // 0 - sphere, 1 - cylinder
     void set_image_type(int type);
-    void set_image_type(const std::string& path);
+    void set_image_type(const std::string &path);
 
     // 设置到 imu 坐标系的旋转平移
     void set_body(const std::string &path);

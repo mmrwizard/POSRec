@@ -196,24 +196,31 @@ Vector2d LadybugImage::to_pixel(const Vector2d &angle) const {
         // 范围为 [-pi/4, pi/4]
         uv.y() = 0.5 * height - angle.y() * 0.5 * height;
     }
+
+    // 计算值是从左上角的左上角即为 (0, 0)，但是应从左上角像素的中心
+    uv -= Vector2d(.5, .5);
     return uv;
 }
 
 Vector2d LadybugImage::to_angle(const Vector2d &uv) const {
     constexpr double m_pi = 3.14159265358979323846;
+
+    // 计算值是从左上角的左上角即为 (0, 0)，但是应从左上角像素的中心
+    Vector2d uv_corner = uv + Vector2d(0.5, 0.5);
+
     Vector2d angle;
-    angle.x() = (uv.x() - height) / height * m_pi;
+    angle.x() = (uv_corner.x() - height) / height * m_pi;
     if (type == 0) {
-        angle.y() = (height - 2.0 * uv.y()) / (2.0 * height) * m_pi;
+        angle.y() = (height - 2.0 * uv_corner.y()) / (2.0 * height) * m_pi;
     } else if (type == 1) {
-        angle.y() = 1 - 2.0 * uv.y() / height;
+        angle.y() = 1 - 2.0 * uv_corner.y() / height;
     }
 
     return angle;
 }
 
 Vector3d LadybugImage::to_local(const Vector3d &world) const {
-    return q_body.inverse() * (q_world.inverse() * (world - t_world) - t_body);
+    return q_body.conjugate() * (q_world.conjugate() * (world - t_world) - t_body);
 }
 
 Vector3d LadybugImage::to_world(const Vector3d &local) const { return q_world * (q_body * local + t_body) + t_world; }

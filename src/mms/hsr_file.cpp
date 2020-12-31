@@ -316,8 +316,6 @@ void HsrFile::export_colored_las_ooc(const std::string &path, const Pos &pos, co
             }
         }
 
-        ladybug->cache_images(caches);
-
         std::vector<std::vector<HSPoint>> hspoints;
         bool exceed_time = false;
 
@@ -353,13 +351,20 @@ void HsrFile::export_colored_las_ooc(const std::string &path, const Pos &pos, co
                     value = clip<double>(value * 65535, 0, 65535);
                     intensity = floor(value);
 
-                    Vector3b color = ladybug->colorize_on_images(point, caches);
-
                     gpss.push_back(gpstime);
                     points.push_back(point);
                     intensities.push_back(intensity);
-                    colors.push_back(color);
                 }
+            }
+
+            if (points.size()) {
+                ladybug->cache_images(caches);
+            }
+
+            colors.reserve(points.size());
+            for (const auto &point : points) {
+                Vector3b color = ladybug->colorize_on_images(point, caches);
+                colors.push_back(color);
             }
 
             for (int p = 0; p < points.size(); ++p) {
