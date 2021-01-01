@@ -10,8 +10,12 @@
 #include <mms/hsr_file.h>
 #include <mms/ladybug_stream.h>
 #include <mms/pos.h>
+#include <gdal.h>
+#include <cpl_conv.h>
 
 using namespace h2o;
+
+void set_gdal_environment();
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
@@ -78,4 +82,20 @@ int main(int argc, char **argv) {
     }
 
     return 0;
+}
+
+void set_gdal_environment() {
+  GDALAllRegister();
+
+  QString appfile = QApplication::applicationDirPath();
+  std::string qmdir = h2o::join_paths(appfile.toStdString(), "resources/gdal_data/");
+
+  CPLSetConfigOption("GDAL_DATA", qmdir.c_str());
+  CPLSetConfigOption("DXF_WRITE_HATCH", "FALSE"); // 必须要在这创建 DXF 导出的选项
+  CPLSetConfigOption("TIFF_USE_OVR", "TRUE");     // 必须要在这创建 DXF 导出的选项
+
+  std::string proj = h2o::join_paths(appfile.toStdString(), "resources/proj/");
+  set_proj_directory(proj);
+  proj = "PROJ_LIB=" + proj;
+  putenv((char*)proj.c_str());
 }

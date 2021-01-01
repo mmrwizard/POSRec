@@ -31,7 +31,8 @@ HsrFile::HsrFileConfig HsrFile::load_config(const string &path) {
         config.rdist = j["RangeDist"].get<std::vector<double>>();
     }
     if (j.count("WKT")) {
-        config.wkt = j["WKT"].get<std::string>();
+        std::string proj = j["Prjection"].get<std::string>();
+        config.wkt = proj_to_wkt(proj);
     }
 
     return config;
