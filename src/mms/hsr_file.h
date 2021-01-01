@@ -46,16 +46,20 @@ public:
     // 采用 out-of-core 方式，不需全部读入内存，直接导出
     void export_las_ooc(const std::string &path, const Pos &pos) const;
 
+    // 导出带颜色的点云
+    void export_colored_las_ooc(const std::string &path, const Pos &pos, const LadybugStreamPtr &ladybug) const;
+
     // to body: X_b = R * X_l + t
     void set_body(const Vector3d &r, const Vector3d &t);
     void set_body(const std::string &config);
 
     void set_config(const HsrFileConfig &config) { config_ = config; }
-
+    void set_config(const std::string& path);
 protected:
     laszip_POINTER create_lasfile_header(const std::string &path, const Vector3d &offset,
                                          const BoundingBox3d &bounds) const;
     Vector2d get_intensity_range() const;
+    bool is_point_good(double range, double gpstime, double speed = DBL_MAX) const;
 
 public:
     static std::tuple<Quaterniond, Vector3d> read_lidar_body(const std::string &path);

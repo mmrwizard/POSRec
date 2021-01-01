@@ -17,6 +17,9 @@ namespace h2o {
 LadybugStream::LadybugStream(const std::string &dir, const std::string &name, const std::string &timestamp,
                              const Pos &pos)
     : pos_(pos) {
+
+    mat_caches_ = std::make_shared<CacheImages>();
+
     std::ifstream file(string_utf8_to_fstream(timestamp));
     std::string line;
 
@@ -98,6 +101,16 @@ void LadybugStream::set_image_type(int type) {
     }
 }
 
+void LadybugStream::set_image_type(const std::string &path) {
+    nlohmann::json j = read_json_file(path);
+    if (!j.count("Pano")) {
+        return;
+    }
+    j = j["Pano"];
+    int type = j["ImageType"];
+    set_image_type(type);
+}
+
 void LadybugStream::set_body(const std::string &path) {
     nlohmann::json j = read_json_file(path);
     if (!j.count("Pano")) {
@@ -110,9 +123,9 @@ void LadybugStream::set_body(const std::string &path) {
     t(1) = j["Y"];
     t(2) = j["Z"];
 
-    r(0) = j["Yaw"];
-    r(1) = j["Pitch"];
-    r(2) = j["Roll"];
+    r(0) = j["Yaw"].get<double>() * DEG2RAD;
+    r(1) = j["Pitch"].get<double>() * DEG2RAD;
+    r(2) = j["Roll"].get<double>() * DEG2RAD;
 
     set_body(r, t);
 }
@@ -127,13 +140,12 @@ void LadybugStream::set_body(const Vector3d &r, const Vector3d &t) {
     }
 }
 
-Vector3b LadybugStream::colorize(const Vector3d &X) {
-    constexpr int K = 5;
-    std::vector<Eigen::Index> indices(K);
-    std::vector<double> radius(K);
-    kdtree_trajectory_->query(X.data(), K, indices.data(), radius.data());
+Vector3b LadybugStream::colorize_on_images(const Vector3d &X, const std::vector<uint32_t> &images) const {
+    for (Eigen::Index index : images) {
+        if (!mat_caches_->contains(index)) {
+            continue;
+        }
 
-    for (Eigen::Index index : indices) {
         const auto &image = images_.at(index);
         Vector3d local = image.to_local(X);
         Vector2d angle = image.to_angle(local);
@@ -145,19 +157,22 @@ Vector3b LadybugStream::colorize(const Vector3d &X) {
 
         Vector2d pixel = image.to_pixel(angle);
 
-        cv::Mat mat;
-        if (mat_caches_.contains(index)) {
-            mat = mat_caches_.get(index);
-        } else {
-            mat = cv::imread(string_utf8_to_fstream(image.path), cv::IMREAD_COLOR);
-            mat_caches_.insert(index, mat);
-        }
+        cv::Mat mat = mat_caches_->get(index);
 
         cv::Vec3b color = image_interpolate<cv::Vec3b>(mat, pixel.cast<float>(), cv::BORDER_REPLICATE);
         return Vector3b(color[2], color[1], color[0]);
     }
 
-    return Vector3b(0, 0, 0);
+    return Vector3b::Zero();
+}
+
+void LadybugStream::cache_images(const std::vector<uint32_t> &images) {
+    for (uint32_t index : images) {
+        if (!mat_caches_->contains(index)) {
+            cv::Mat mat = cv::imread(string_utf8_to_fstream(images_.at(index).path), cv::IMREAD_COLOR);
+            mat_caches_->insert(index, mat);
+        }
+    }
 }
 
 void LadybugStream::debug_trajectory() {
@@ -173,7 +188,7 @@ void LadybugStream::debug_trajectory() {
 Vector2d LadybugImage::to_pixel(const Vector2d &angle) const {
     constexpr double m_1_pi = 0.318309886183790671538; // 1 / pi
     Vector2d uv;
-    uv.x() = angle.x() * height * m_1_pi + height;
+    uv.x() = 2.0 * height - angle.x() * height * m_1_pi;
     if (type == 0) {
         // 范围为 [-pi/2, pi/2]
         uv.y() = 0.5 * height - angle.y() * height * m_1_pi;
@@ -181,38 +196,51 @@ Vector2d LadybugImage::to_pixel(const Vector2d &angle) const {
         // 范围为 [-pi/4, pi/4]
         uv.y() = 0.5 * height - angle.y() * 0.5 * height;
     }
+
+    // 计算值是从左上角的左上角即为 (0, 0)，但是应从左上角像素的中心
+    uv -= Vector2d(.5, .5);
     return uv;
 }
 
 Vector2d LadybugImage::to_angle(const Vector2d &uv) const {
     constexpr double m_pi = 3.14159265358979323846;
+
+    // 计算值是从左上角的左上角即为 (0, 0)，但是应从左上角像素的中心
+    Vector2d uv_corner = uv + Vector2d(0.5, 0.5);
+
     Vector2d angle;
-    angle.x() = (uv.x() - height) / height * m_pi;
+    angle.x() = (2.0 * height - uv_corner.x()) / height * m_pi;
     if (type == 0) {
-        angle.y() = (height - 2.0 * uv.y()) / (2.0 * height) * m_pi;
+        angle.y() = (height - 2.0 * uv_corner.y()) / (2.0 * height) * m_pi;
     } else if (type == 1) {
-        angle.y() = 1 - 2.0 * uv.y() / height;
+        angle.y() = 1 - 2.0 * uv_corner.y() / height;
     }
 
     return angle;
 }
 
 Vector3d LadybugImage::to_local(const Vector3d &world) const {
-    return q_body.inverse() * (q_world.inverse() * (world - t_world) - t_body);
+    return q_body.conjugate() * (q_world.conjugate() * (world - t_world) - t_body);
 }
 
 Vector3d LadybugImage::to_world(const Vector3d &local) const { return q_world * (q_body * local + t_body) + t_world; }
 
 Vector2d LadybugImage::to_angle(const Vector3d &local) const {
     Vector2d angle;
-    double r = local.norm();
+    // x 归化到 [0-2pi]
     angle.x() = atan2(local.y(), local.x());
+    angle.x() += angle.x() < 0 ? 2.0 * M_PI : 0.0;
+
+    double r2 = hypot(local.x(), local.y());
 
     if (type == 0) {
-        angle.y() = acos(local.z() / r);
+        angle.y() = atan2(local.z(), r2);
     } else if (type == 1) {
-        double r2 = local.head(2).norm();
-        angle.y() = local.z() / r2;
+        if (r2 < 1e-6) {
+            angle.y() = DBL_MAX;
+        } else {
+            angle.y() = local.z() / r2;
+        }
     }
 
     return angle;
@@ -222,7 +250,7 @@ bool LadybugImage::is_valid(const Vector2d &angle) const {
     if (type == 0) {
         return true;
     } else if (type == 1) {
-        return std::abs(angle.y()) < 1.0;
+        return std::abs(angle.y()) <= 1.0;
     }
 
     return false;
