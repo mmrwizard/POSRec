@@ -123,9 +123,9 @@ void LadybugStream::set_body(const std::string &path) {
     t(1) = j["Y"];
     t(2) = j["Z"];
 
-    r(0) = j["Yaw"];
-    r(1) = j["Pitch"];
-    r(2) = j["Roll"];
+    r(0) = j["Yaw"].get<double>() * DEG2RAD;
+    r(1) = j["Pitch"].get<double>() * DEG2RAD;
+    r(2) = j["Roll"].get<double>() * DEG2RAD;
 
     set_body(r, t);
 }
