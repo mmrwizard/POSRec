@@ -32,7 +32,7 @@ struct LadybugImage {
     std::string path;
 
     // angle: (theta, phi)
-    // theta -> [-pi, pi]
+    // theta -> [0, 2pi]，影像从左到右为 2pi->pi->0
     // phi -> [-pi/2, pi/2] (type = 0)
     // phi -> tan[-pi/4, pi/4] (type = 1)
     // width = 2 * height

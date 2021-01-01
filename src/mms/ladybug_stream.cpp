@@ -188,13 +188,11 @@ void LadybugStream::debug_trajectory() {
 Vector2d LadybugImage::to_pixel(const Vector2d &angle) const {
     constexpr double m_1_pi = 0.318309886183790671538; // 1 / pi
     Vector2d uv;
-
+    uv.x() = 2.0 * height - angle.x() * height * m_1_pi;
     if (type == 0) {
-        uv.x() = 2.0 * height - angle.x() * height * m_1_pi;
         // 范围为 [-pi/2, pi/2]
         uv.y() = 0.5 * height - angle.y() * height * m_1_pi;
     } else if (type == 1) {
-        uv.x() = angle.x() * height * m_1_pi + height;
         // 范围为 [-pi/4, pi/4]
         uv.y() = 0.5 * height - angle.y() * 0.5 * height;
     }
@@ -211,7 +209,7 @@ Vector2d LadybugImage::to_angle(const Vector2d &uv) const {
     Vector2d uv_corner = uv + Vector2d(0.5, 0.5);
 
     Vector2d angle;
-    angle.x() = (uv_corner.x() - height) / height * m_pi;
+    angle.x() = (2.0 * height - uv_corner.x()) / height * m_pi;
     if (type == 0) {
         angle.y() = (height - 2.0 * uv_corner.y()) / (2.0 * height) * m_pi;
     } else if (type == 1) {
@@ -229,15 +227,20 @@ Vector3d LadybugImage::to_world(const Vector3d &local) const { return q_world * 
 
 Vector2d LadybugImage::to_angle(const Vector3d &local) const {
     Vector2d angle;
-    double r = local.norm();
+    // x 归化到 [0-2pi]
     angle.x() = atan2(local.y(), local.x());
+    angle.x() += angle.x() < 0 ? 2.0 * M_PI : 0.0;
+
+    double r2 = hypot(local.x(), local.y());
 
     if (type == 0) {
-        angle.x() += angle.x() < 0 ? 2.0 * M_PI : 0.0;
-        angle.y() = asin(local.z() / r);
+        angle.y() = atan2(local.z(), r2);
     } else if (type == 1) {
-        double r2 = local.head(2).norm();
-        angle.y() = local.z() / r2;
+        if (r2 < 1e-6) {
+            angle.y() = DBL_MAX;
+        } else {
+            angle.y() = local.z() / r2;
+        }
     }
 
     return angle;
@@ -247,7 +250,7 @@ bool LadybugImage::is_valid(const Vector2d &angle) const {
     if (type == 0) {
         return true;
     } else if (type == 1) {
-        return std::abs(angle.y()) < 1.0;
+        return std::abs(angle.y()) <= 1.0;
     }
 
     return false;
