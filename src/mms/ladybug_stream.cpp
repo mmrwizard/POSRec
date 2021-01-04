@@ -231,7 +231,8 @@ Vector2d LadybugImage::to_angle(const Vector3d &local) const {
     angle.x() = atan2(local.y(), local.x());
     angle.x() += angle.x() < 0 ? 2.0 * M_PI : 0.0;
 
-    double r2 = hypot(local.x(), local.y());
+    // double r2 = hypot(local.x(), local.y());
+    double r2 = local.head(2).norm(); // 不需要用 hypot，不需要做数值检查
 
     if (type == 0) {
         angle.y() = atan2(local.z(), r2);
