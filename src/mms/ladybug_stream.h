@@ -24,8 +24,10 @@ struct LadybugImage {
     double time = 0.0;
     double radius = 20.0;
 
+    Matrix3d R_world = Matrix3d::Identity();
     Quaterniond q_world = Quaterniond::Identity();
     Vector3d t_world = Vector3d::Zero();
+    Matrix3d R_body = Matrix3d::Identity();
     Quaterniond q_body = Quaterniond::Identity();
     Vector3d t_body = Vector3d::Zero();
 

@@ -78,6 +78,7 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
         image.type = 1;
         image.t_world = t_pos + pos.get_position_offset();
         image.q_world = R_pos;
+        image.R_world = R_pos;
 
         images_.push_back(image);
     }
@@ -137,6 +138,7 @@ void LadybugStream::set_body(const Vector3d &r, const Vector3d &t) {
     for (auto &image : images_) {
         image.q_body = q_body_;
         image.t_body = t_body_;
+        image.R_body = q_body_;
     }
 }
 
@@ -220,10 +222,10 @@ Vector2d LadybugImage::to_angle(const Vector2d &uv) const {
 }
 
 Vector3d LadybugImage::to_local(const Vector3d &world) const {
-    return q_body.conjugate() * (q_world.conjugate() * (world - t_world) - t_body);
+    return R_body.transpose() * (R_world.transpose() * (world - t_world) - t_body);
 }
 
-Vector3d LadybugImage::to_world(const Vector3d &local) const { return q_world * (q_body * local + t_body) + t_world; }
+Vector3d LadybugImage::to_world(const Vector3d &local) const { return R_world * (R_body * local + t_body) + t_world; }
 
 Vector2d LadybugImage::to_angle(const Vector3d &local) const {
     Vector2d angle;
