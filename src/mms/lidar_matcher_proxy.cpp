@@ -19,6 +19,7 @@ LiDARMatcherProxy::LiDARMatcherProxy(const std::string &path_las_i, const std::s
         LasHeader header = pc_read_header(path_las_i);
         offset = header.offset;
     }
+    LOG(INFO) << "Loading...";
     pcd_data_i_ = read_las(path_las_i, offset);
     pcd_data_j_ = read_las(path_las_j, offset);
 
@@ -26,23 +27,29 @@ LiDARMatcherProxy::LiDARMatcherProxy(const std::string &path_las_i, const std::s
     pos_j_ = Pos(path_pos_j);
 }
 LiDARMatches LiDARMatcherProxy::match() {
-
+    LOG(INFO) << "Downsampling...";
     pcd_data_i_ = downsample_voxel(pcd_data_i_);
     pcd_data_j_ = downsample_voxel(pcd_data_j_);
 
+    LOG(INFO) << "Computing normal...";
     compute_normal(pcd_data_i_, pos_i_);
     compute_normal(pcd_data_j_, pos_j_);
 
     if (param_.icp_use_initial) {
+        LOG(INFO) << "Computing features...";
         pcd_data_i_.feats = extract_feature(pcd_data_i_.pcd);
         pcd_data_j_.feats = extract_feature(pcd_data_j_.pcd);
     }
 
+    LOG(INFO) << "Detecting keypoints...";
     std::tie(pcd_data_i_.keys, pcd_data_i_.ikeys) = detect_keypoints(pcd_data_i_.pcd);
     std::tie(pcd_data_j_.keys, pcd_data_j_.ikeys) = detect_keypoints(pcd_data_j_.pcd);
 
+    LOG(INFO) << "Matching...";
     LiDARMatches matches = do_match(pcd_data_i_.pcd, pcd_data_i_.keys, pcd_data_i_.gpstime, pcd_data_i_.feats,
                                     pcd_data_j_.pcd, pcd_data_j_.keys, pcd_data_j_.gpstime, pcd_data_j_.feats);
+
+    LOG(INFO) << "Final matches is " << matches.size();
     // 绘制同名点
     std::vector<Vector3d> key_match_i(matches.size()), key_match_j(matches.size());
     for (int i = 0; i < matches.size(); ++i) {
