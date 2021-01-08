@@ -1,13 +1,13 @@
 
 if(MSVC)
 
-add_library(hsapi SHARED IMPORTED GLOBAL)
-set_property(TARGET hsapi APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
-set_property(TARGET hsapi APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+add_library(HS::RAW SHARED IMPORTED GLOBAL)
+set_property(TARGET HS::RAW APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
+set_property(TARGET HS::RAW APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
 
 file(GLOB HSFILES "bin/*.dll")
 set_target_properties(
-    hsapi
+    HS::RAW
     PROPERTIES IMPORTED_IMPLIB
                ${CMAKE_CURRENT_LIST_DIR}/lib/HsRaw.lib
                IMPORTED_LOCATION
@@ -16,6 +16,8 @@ set_target_properties(
                ${CMAKE_CURRENT_LIST_DIR}/include
                IMPORTED_GLOBAL TRUE
                INTERFACE_COMPILE_DEFINITIONS "_HAS_STD_BYTE=0")
+
+install(FILES "${HSFILES}" DESTINATION bin)
 
 else()
 

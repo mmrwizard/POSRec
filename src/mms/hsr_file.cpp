@@ -170,7 +170,9 @@ void HsrFile::export_las(const std::string &path, const Pos &pos) const {
 
         for (int p = 0; p < nsegments; ++p) {
             double t = gpssecs_[i + p];
-            auto [t_pos, R_pos] = pos.getd(t);
+            Vector3d t_pos;
+            Matrix3d R_pos;
+            std::tie(t_pos, R_pos) = pos.getd(t);
 
             Vector3d point = points_[i + p].cast<double>();
             uint16_t intensity = intens_[i + p];
@@ -239,7 +241,9 @@ void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {
                     continue;
                 }
 
-                auto [t_pos, R_pos] = pos.getd(gpstime);
+                Vector3d t_pos;
+                Matrix3d R_pos;
+                std::tie(t_pos, R_pos) = pos.getd(gpstime);
 
                 Vector3d point(hspoints[i][j].pt.x, hspoints[i][j].pt.y, hspoints[i][j].pt.z);
                 uint16_t intensity = hspoints[i][j].nReflection;
@@ -340,7 +344,9 @@ void HsrFile::export_colored_las_ooc(const std::string &path, const Pos &pos, co
                         continue;
                     }
 
-                    auto [t_pos, R_pos] = pos.getd(gpstime);
+                    Vector3d t_pos;
+                    Matrix3d R_pos;
+                    std::tie(t_pos, R_pos) = pos.getd(gpstime);
 
                     Vector3d point(hspoint.pt.x, hspoint.pt.y, hspoint.pt.z);
                     uint16_t intensity = hspoint.nReflection;

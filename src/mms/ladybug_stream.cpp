@@ -66,7 +66,9 @@ LadybugStream::LadybugStream(const std::string &dir, const std::string &name, co
             continue;
         }
 
-        auto [t_pos, R_pos] = pos.getd(sec_of_day);
+        Vector3d t_pos;
+        Matrix3d R_pos;
+        std::tie(t_pos, R_pos) = pos.getd(sec_of_day);
 
         LadybugImage image;
         ImageHeader image_header;

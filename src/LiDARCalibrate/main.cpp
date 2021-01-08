@@ -28,12 +28,12 @@ int main(int argc, char **argv) {
     std::string path_config;
 
     // clang-format off
-  options.add_options("MMSConverter")
-    ("i,input", "Input control files", cxxopts::value(path_gcp))
-    ("t, tiepoints", "Input tie points", cxxopts::value(path_tps))
-    ("p,pos", "Path to pos file", cxxopts::value(path_pos))
-    ("c,config", "Path to configuration file", cxxopts::value(path_config))
-    ("h,help", "Print help message.");
+    options.add_options("MMSConverter")
+      ("i,input", "Input control files", cxxopts::value(path_gcp))
+      ("t, tiepoints", "Input tie points", cxxopts::value(path_tps))
+      ("p,pos", "Path to pos file", cxxopts::value(path_pos))
+      ("c,config", "Path to configuration file", cxxopts::value(path_config))
+      ("h,help", "Print help message.");
     // clang-format on
 
     auto arguments = options.parse(argc, argv);
@@ -53,7 +53,10 @@ int main(int argc, char **argv) {
     pos.load_pos(path_pos);
 
     LiDARCalibrate calibrator(pos);
-    auto [q_body, t_body] = HsrFile::read_lidar_body(path_config);
+
+    Quaterniond q_body;
+    Vector3d t_body;
+    std::tie(q_body, t_body) = HsrFile::read_lidar_body(path_config);
     auto gcps = LiDARCalibrate::GCP::load(path_gcp);
     std::vector<LiDARCalibrate::TPS> tps;
     calibrator.set_body(q_body, t_body);
@@ -64,7 +67,9 @@ int main(int argc, char **argv) {
         calibrator.set_tps(tps);
     }
 
-    auto [dq, dt] = calibrator.calibrate();
+    Quaterniond dq;
+    Vector3d dt;
+    std::tie(dq, dt) = calibrator.calibrate();
 
     q_body = dq * q_body;
     t_body = dt + t_body;

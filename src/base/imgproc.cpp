@@ -5,7 +5,7 @@
  */
 #include <base/imgproc.h>
 
-#include <ippi.h>
+// #include <ippi.h>
 #include <opencv2/core/eigen.hpp>
 
 namespace h2o {
@@ -412,68 +412,68 @@ cv::Mat remap_ipp(const cv::Mat &src, const cv::Mat &mapx, const cv::Mat &mapy, 
     CHECK(mapx.rows == mapy.rows && mapx.cols == mapy.cols);
 
     cv::Mat dst = cv::Mat::zeros(mapx.rows, mapx.cols, src.type());
-
+    cv::remap(src, dst, mapx, mapy, _interpolation);
     // ipp 所需要的所有参数
-    int type = src.type();
-    IppiSize src_size = {src.cols, src.rows};
-    int src_step = src.step[0];
-    IppiRect src_roi = {0, 0, src.cols, src.rows};
-    const Ipp32f *mapx_data = (Ipp32f *)mapx.data;
-    int mapx_step = mapx.step[0];
-    const Ipp32f *mapy_data = (Ipp32f *)mapy.data;
-    int mapy_step = mapy.step[0];
-    int dst_step = dst.step[0];
-    IppiSize dst_size = {dst.cols, dst.rows};
-    int interpolation = IPPI_INTER_LINEAR;
-    if (_interpolation == cv::INTER_LINEAR) {
-        interpolation = IPPI_INTER_LINEAR;
-    } else if (_interpolation == cv::INTER_NEAREST) {
-        interpolation = IPPI_INTER_NN;
-    } else if (_interpolation == cv::INTER_CUBIC) {
-        interpolation = IPPI_INTER_CUBIC;
-    }
+    // int type = src.type();
+    // IppiSize src_size = {src.cols, src.rows};
+    // int src_step = src.step[0];
+    // IppiRect src_roi = {0, 0, src.cols, src.rows};
+    // const Ipp32f *mapx_data = (Ipp32f *)mapx.data;
+    // int mapx_step = mapx.step[0];
+    // const Ipp32f *mapy_data = (Ipp32f *)mapy.data;
+    // int mapy_step = mapy.step[0];
+    // int dst_step = dst.step[0];
+    // IppiSize dst_size = {dst.cols, dst.rows};
+    // int interpolation = IPPI_INTER_LINEAR;
+    // if (_interpolation == cv::INTER_LINEAR) {
+    //     interpolation = IPPI_INTER_LINEAR;
+    // } else if (_interpolation == cv::INTER_NEAREST) {
+    //     interpolation = IPPI_INTER_NN;
+    // } else if (_interpolation == cv::INTER_CUBIC) {
+    //     interpolation = IPPI_INTER_CUBIC;
+    // }
 
-    switch (type) {
-    case CV_8U:
-        ippiRemap_8u_C1R((const Ipp8u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                         mapy_step, (Ipp8u *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_8UC3:
-        ippiRemap_8u_C3R((const Ipp8u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                         mapy_step, (Ipp8u *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_8UC4:
-        ippiRemap_8u_C4R((const Ipp8u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                         mapy_step, (Ipp8u *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_16U:
-        ippiRemap_16u_C1R((const Ipp16u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                          mapy_step, (Ipp16u *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_16UC3:
-        ippiRemap_16u_C3R((const Ipp16u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                          mapy_step, (Ipp16u *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_16UC4:
-        ippiRemap_16u_C4R((const Ipp16u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                          mapy_step, (Ipp16u *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_32F:
-        ippiRemap_32f_C1R((const Ipp32f *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                          mapy_step, (Ipp32f *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_32FC3:
-        ippiRemap_32f_C3R((const Ipp32f *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                          mapy_step, (Ipp32f *)dst.data, dst_step, dst_size, interpolation);
-        break;
-    case CV_32FC4:
-        ippiRemap_32f_C4R((const Ipp32f *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
-                          mapy_step, (Ipp32f *)dst.data, dst_step, dst_size, interpolation);
-        break;
+    // switch (type) {
+    // case CV_8U:
+    //     ippiRemap_8u_C1R((const Ipp8u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                      mapy_step, (Ipp8u *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_8UC3:
+    //     ippiRemap_8u_C3R((const Ipp8u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                      mapy_step, (Ipp8u *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_8UC4:
+    //     ippiRemap_8u_C4R((const Ipp8u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                      mapy_step, (Ipp8u *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_16U:
+    //     ippiRemap_16u_C1R((const Ipp16u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                       mapy_step, (Ipp16u *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_16UC3:
+    //     ippiRemap_16u_C3R((const Ipp16u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                       mapy_step, (Ipp16u *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_16UC4:
+    //     ippiRemap_16u_C4R((const Ipp16u *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                       mapy_step, (Ipp16u *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_32F:
+    //     ippiRemap_32f_C1R((const Ipp32f *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                       mapy_step, (Ipp32f *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_32FC3:
+    //     ippiRemap_32f_C3R((const Ipp32f *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                       mapy_step, (Ipp32f *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
+    // case CV_32FC4:
+    //     ippiRemap_32f_C4R((const Ipp32f *)src.data, src_size, src_step, src_roi, mapx_data, mapx_step, mapy_data,
+    //                       mapy_step, (Ipp32f *)dst.data, dst_step, dst_size, interpolation);
+    //     break;
 
-    default:
-        break;
-    }
+    // default:
+    //     break;
+    // }
 
     return dst;
 }

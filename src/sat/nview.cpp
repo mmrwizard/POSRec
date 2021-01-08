@@ -34,7 +34,6 @@ Vector3d intersect(const std::vector<Vector2d> &points, const std::vector<RpcCam
     ceres::Solver::Options options;
     options.max_num_iterations = 5;
     options.num_threads = 1;
-    options.num_linear_solver_threads = 1;
     options.linear_solver_type = ceres::DENSE_QR;
     ceres::Solver::Summary summary;
 
@@ -187,7 +186,6 @@ std::vector<Vector3d> intersect_ceres(const std::vector<std::unordered_map<iid_t
         ceres::Solver::Options options;
         options.max_num_iterations = 5;
         options.num_threads = 1;
-        options.num_linear_solver_threads = 1;
         options.linear_solver_type = ceres::DENSE_QR;
         ceres::Solver::Summary summary;
 

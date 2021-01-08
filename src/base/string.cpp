@@ -143,9 +143,7 @@ std::string string_to_upper(const std::string &str) { return QString::fromStdStr
 std::string string_utf8_to_fstream(const std::string &filepath) {
 #ifdef _MSC_VER
     // MSVC 需要转换
-    std::filesystem::path path = std::filesystem::path(QString::fromStdString(filepath).toStdWString());
-    std::string result = path.string();
-    return result;
+    return std::string(QString::fromStdString(filepath).toLocal8Bit().constData());
 #else
     // TODO: 测试其他平台是不是不需要转换
     return filepath;

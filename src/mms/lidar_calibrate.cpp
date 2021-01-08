@@ -115,7 +115,9 @@ void LiDARCalibrate::set_gcp(const std::vector<GCP> &gcps) {
     gcps_ = gcps;
     // 初始化 GCP 的内部信息
     for (GCP &gcp : gcps_) {
-        auto [t_pos, R_pos] = pos_.getd(gcp.gpstime);
+        Vector3d t_pos;
+        Matrix3d R_pos;
+        std::tie(t_pos, R_pos) = pos_.getd(gcp.gpstime);
         gcp.q_pos = R_pos;
         gcp.t_pos = t_pos + pos_.get_position_offset();
         gcp.p_lidar_local = q_body_.inverse() * (R_pos.transpose() * (gcp.p_lidar - gcp.t_pos) - t_body_);
@@ -126,18 +128,24 @@ void LiDARCalibrate::set_tps(const std::vector<TPS> &tps) {
     tps_ = tps;
 
     for (TPS &tps : tps_) {
-        auto [t_pos1, R_pos1] = pos_.getd(tps.t1);
+        Vector3d t_pos1;
+        Matrix3d R_pos1;
+        std::tie(t_pos1, R_pos1) = pos_.getd(tps.t1);
         tps.q_pos1 = R_pos1;
         tps.t_pos1 = t_pos1 + pos_.get_position_offset();
         tps.p_local1 = q_body_.inverse() * (R_pos1.transpose() * (tps.p_lidar1 - tps.t_pos1) - t_body_);
 
         if (has_pos2_) {
-            auto [t_pos2, R_pos2] = pos2_.getd(tps.t2);
+            Vector3d t_pos2;
+            Matrix3d R_pos2;
+            std::tie(t_pos2, R_pos2) = pos2_.getd(tps.t2);
             tps.q_pos2 = R_pos2;
             tps.t_pos2 = t_pos2 + pos_.get_position_offset();
             tps.p_local2 = q_body_.inverse() * (R_pos2.transpose() * (tps.p_lidar2 - tps.t_pos2) - t_body_);
         } else {
-            auto [t_pos2, R_pos2] = pos_.getd(tps.t2);
+            Vector3d t_pos2;
+            Matrix3d R_pos2;
+            std::tie(t_pos2, R_pos2) = pos_.getd(tps.t2);
             tps.q_pos2 = R_pos2;
             tps.t_pos2 = t_pos2 + pos_.get_position_offset();
             tps.p_local2 = q_body_.inverse() * (R_pos2.transpose() * (tps.p_lidar2 - tps.t_pos2) - t_body_);

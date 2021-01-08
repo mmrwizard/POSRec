@@ -101,6 +101,9 @@ find_package(OpenCV
              xphoto
              stitching)
 
+# Open3D::Open3D 
+find_package(Open3D REQUIRED)
+
 add_definitions(-DCGAL_HEADER_ONLY)
 find_package(CGAL REQUIRED)
 
@@ -124,7 +127,7 @@ find_package(Glog REQUIRED)
 find_package(Ceres REQUIRED)
 
 # IPP_LIBRARIES or IPP::module
-find_package(IPP REQUIRED)
+# find_package(IPP REQUIRED)
 
 # OpenGL::GL OpenGL::GLU
 find_package(OpenGL REQUIRED)

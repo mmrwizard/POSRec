@@ -127,7 +127,6 @@ Vector3d intersect_rpc_ceres(const Vector2d &fwd_point, const Vector2d &bwd_poin
     ceres::Solver::Options options;
     options.max_num_iterations = 5;
     options.num_threads = 1;
-    options.num_linear_solver_threads = 1;
     options.linear_solver_type = ceres::DENSE_QR;
     ceres::Solver::Summary summary;
 

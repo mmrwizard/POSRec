@@ -1,10 +1,6 @@
 mkdir build
 cd build
 
-    #   -DCMAKE_SYSROOT=$CONDA_PREFIX/$HOST/sysroot \
-    #   -DTIFF_LIBRARY=$CONDA_PREFIX/lib/libtiff.so \
-    #    \
-    
 cmake -GNinja \
       -DH2O_BUILD_DOG=OFF \
       -DH2O_BUILD_SERIAL=OFF \
