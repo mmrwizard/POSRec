@@ -104,9 +104,6 @@ find_package(OpenCV
 # Open3D::Open3D 
 find_package(Open3D REQUIRED)
 
-# teaserpp::teaserpp
-# find_package(teaserpp REQUIRED)
-
 add_definitions(-DCGAL_HEADER_ONLY)
 find_package(CGAL REQUIRED)
 

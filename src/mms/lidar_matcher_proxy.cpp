@@ -6,7 +6,6 @@
  */
 
 #include "lidar_matcher_proxy.h"
-#include "lidar_matcher_cgal.h"
 
 #include <base/base.h>
 #include <laszip/laszip_api.h>
@@ -230,7 +229,7 @@ LiDARMatches LiDARMatcherProxy::do_match(const PointCloudPtr &pcd_i, const Point
 
     LiDARMatches matches;
 
-    // #pragma omp parallel for
+#pragma omp parallel for
     for (int ki = 0; ki < key_i->points_.size(); ++ki) {
         Vector3d keypoint_i = key_i->points_[ki];
 
@@ -250,7 +249,7 @@ LiDARMatches LiDARMatcherProxy::do_match(const PointCloudPtr &pcd_i, const Point
 
         // 找到对应区域的点云
         PointCloudPtr cluster_i, cluster_j;
-        PointFeaturePtr cluster_fpfh_i, cluster_fpfh_j;
+        PointFeature cluster_fpfh_i, cluster_fpfh_j;
         {
             {
                 PointIndices indices;
@@ -261,10 +260,9 @@ LiDARMatches LiDARMatcherProxy::do_match(const PointCloudPtr &pcd_i, const Point
                 }
                 cluster_i = pcd_i->SelectByIndex(std::vector<size_t>(begin(indices), end(indices)));
                 if (param_.icp_use_initial) {
-                    cluster_fpfh_i = std::make_shared<PointFeature>();
-                    cluster_fpfh_i->Resize(fpfh_i->Dimension(), indices.size());
+                    cluster_fpfh_i.Resize(fpfh_i->Dimension(), indices.size());
                     for (int idx = 0; idx < indices.size(); ++idx) {
-                        cluster_fpfh_i->data_.col(idx) = fpfh_i->data_.col(indices[idx]);
+                        cluster_fpfh_i.data_.col(idx) = fpfh_i->data_.col(indices[idx]);
                     }
                 }
             }
@@ -277,28 +275,24 @@ LiDARMatches LiDARMatcherProxy::do_match(const PointCloudPtr &pcd_i, const Point
                 }
                 cluster_j = pcd_j->SelectByIndex(std::vector<size_t>(begin(indices), end(indices)));
                 if (param_.icp_use_initial) {
-                    cluster_fpfh_j = std::make_shared<PointFeature>();
-                    cluster_fpfh_j->Resize(fpfh_j->Dimension(), indices.size());
+                    cluster_fpfh_j.Resize(fpfh_j->Dimension(), indices.size());
                     for (int idx = 0; idx < indices.size(); ++idx) {
-                        cluster_fpfh_j->data_.col(idx) = fpfh_j->data_.col(indices[idx]);
+                        cluster_fpfh_j.data_.col(idx) = fpfh_j->data_.col(indices[idx]);
                     }
                 }
             }
         }
 
         open3d::pipelines::registration::RegistrationResult results;
-        Matrix4d initial = Matrix4d::Identity();
         if (param_.icp_use_initial) {
             open3d::pipelines::registration::FastGlobalRegistrationOption fgr_option;
             fgr_option.maximum_correspondence_distance_ = param_.icp_max_distance * 3.0;
-            results = open3d::pipelines::registration::FastGlobalRegistration(*cluster_i, *cluster_j, *cluster_fpfh_i,
-                                                                              *cluster_fpfh_j, fgr_option);
-            initial = results.transformation_;
-            // initial = match_teaser(cluster_i, cluster_j, cluster_fpfh_i, cluster_fpfh_j, param_.voxel_size);
+            results = open3d::pipelines::registration::FastGlobalRegistration(*cluster_i, *cluster_j, cluster_fpfh_i,
+                                                                              cluster_fpfh_j, fgr_option);
         }
 
-        results =
-            open3d::pipelines::registration::RegistrationICP(*cluster_i, *cluster_j, param_.icp_max_distance, initial);
+        results = open3d::pipelines::registration::RegistrationICP(*cluster_i, *cluster_j, param_.icp_max_distance,
+                                                                   results.transformation_);
 
         if (results.inlier_rmse_ > 2.0 * param_.voxel_size || results.fitness_ < param_.icp_t_overlap ||
             results.correspondence_set_.size() < param_.icp_t_need_points) {
@@ -310,16 +304,6 @@ LiDARMatches LiDARMatcherProxy::do_match(const PointCloudPtr &pcd_i, const Point
         if (distance_ij_new > distance_ij_old) {
             continue;
         }
-
-        LOG(INFO) << "\n" << initial;
-        LOG(INFO) << "\n" << results.transformation_;
-
-        cluster_i->PaintUniformColor(Vector3d(1, 0.706, 0));
-        cluster_j->PaintUniformColor(Vector3d(0, 0.651, 0.929));
-        open3d::visualization::DrawGeometries({cluster_i, cluster_j});
-
-        cluster_i->Transform(initial);
-        open3d::visualization::DrawGeometries({cluster_i, cluster_j}, "After", 1920, 1080);
 
         // 找到最近点
         int pi, pj;
