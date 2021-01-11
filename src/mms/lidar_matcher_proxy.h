@@ -44,9 +44,11 @@ protected:
     void compute_normal(const PointCloudWithData &pcd_data, const Pos &pos);
     PointFeaturePtr extract_feature(const PointCloudPtr &pcd);
     std::tuple<PointCloudPtr, PointIndices> detect_keypoints(const PointCloudPtr &pcd);
-    LiDARMatches do_match(const PointCloudPtr &pcd_i, const PointCloudPtr &key_i, const std::vector<double>& gps_i,
+    LiDARMatches do_match(const PointCloudPtr &pcd_i, const PointCloudPtr &key_i, const std::vector<double> &gps_i,
                           const PointFeaturePtr &fpfh_i, const PointCloudPtr &pcd_j, const PointCloudPtr &key_j,
                           const std::vector<double> &gps_j, const PointFeaturePtr &fpfh_j);
+    Matrix4d match_teaser(const PointCloudPtr &pcd_i, const PointCloudPtr &pcd_j, const PointFeaturePtr &fpfh_i,
+                          const PointFeaturePtr &fpfh_j, double voxel_size) const;
 
 protected:
     PointCloudWithData pcd_data_i_;
