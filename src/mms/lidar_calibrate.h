@@ -54,15 +54,16 @@ public:
 
     struct Config {
         Config() {}
-        bool with_translate = false;
+        bool with_translate = true;
+        int epoch_clean = 5;
 
         double std_body_angle = 3.0 * DEG2RAD;
-        double std_lidar_point = 0.2;
+        double std_body_translate = 0.05;
+        double std_lidar_point = 0.02;
     };
 
 public:
-    LiDARCalibrate(const Pos &pos, const Config &config = Config());
-    LiDARCalibrate(const Pos &pos1, const Pos &pos2, const Config &config = Config());
+    LiDARCalibrate(const Config &config = Config());
     ~LiDARCalibrate() {}
 
 public:
@@ -73,6 +74,8 @@ public:
     std::tuple<Quaterniond, Vector3d> calibrate();
 
 protected:
+    void solve();
+    void clean();
     void evaluate();
 
 protected:
@@ -90,10 +93,6 @@ protected:
     std::vector<ceres::ResidualBlockId> blocks_gcps_;
     std::vector<ceres::ResidualBlockId> blocks_tps_;
     std::shared_ptr<ceres::Problem> problem_;
-
-    const Pos &pos_;
-    const Pos &pos2_;
-    bool has_pos2_;
 
     Config param_;
 };

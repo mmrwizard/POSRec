@@ -20,47 +20,44 @@ int main(int argc, char **argv) {
     QApplication app(argc, argv);
     initilize_glog(argv);
 
-    cxxopts::Options options("LiDARCalibrate");
+    cxxopts::Options options("MMSLiDARCalibrate");
 
     std::string path_gcp;
     std::string path_tps;
-    std::string path_pos;
     std::string path_config;
 
     // clang-format off
-    options.add_options("MMSConverter")
-      ("i,input", "Input control files", cxxopts::value(path_gcp))
-      ("t, tiepoints", "Input tie points", cxxopts::value(path_tps))
-      ("p,pos", "Path to pos file", cxxopts::value(path_pos))
+    options.add_options("MMSLiDARCalibrate")
+      ("g,gcp", "Input control files", cxxopts::value(path_gcp))
+      ("t,tie", "Input tie points", cxxopts::value(path_tps))
       ("c,config", "Path to configuration file", cxxopts::value(path_config))
       ("h,help", "Print help message.");
     // clang-format on
 
     auto arguments = options.parse(argc, argv);
 
-    if (arguments.count("help") || arguments.count("i") == 0) {
-        std::cout << options.help({"LiDARCalibrate"}) << std::endl;
+    if (arguments.count("help")) {
+        std::cout << options.help({"MMSLiDARCalibrate"}) << std::endl;
         return 1;
     }
 
     path_gcp = QFileInfo(QString::fromLocal8Bit(path_gcp.c_str())).absoluteFilePath().toStdString();
     path_tps = QFileInfo(QString::fromLocal8Bit(path_tps.c_str())).absoluteFilePath().toStdString();
-
-    path_pos = QFileInfo(QString::fromLocal8Bit(path_pos.c_str())).absoluteFilePath().toStdString();
     path_config = QFileInfo(QString::fromLocal8Bit(path_config.c_str())).absoluteFilePath().toStdString();
 
-    Pos pos;
-    pos.load_pos(path_pos);
-
-    LiDARCalibrate calibrator(pos);
+    LiDARCalibrate calibrator;
 
     Quaterniond q_body;
     Vector3d t_body;
     std::tie(q_body, t_body) = HsrFile::read_lidar_body(path_config);
-    auto gcps = LiDARCalibrate::GCP::load(path_gcp);
-    std::vector<LiDARCalibrate::TPS> tps;
     calibrator.set_body(q_body, t_body);
-    calibrator.set_gcp(gcps);
+
+    std::vector<LiDARCalibrate::GCP> gcps;
+    std::vector<LiDARCalibrate::TPS> tps;
+    if (!path_gcp.empty()) {
+        gcps = LiDARCalibrate::GCP::load(path_gcp);
+        calibrator.set_gcp(gcps);
+    }
 
     if (!path_tps.empty()) {
         tps = LiDARCalibrate::TPS::load(path_tps);
