@@ -31,11 +31,11 @@ LiDARMatches LiDARMatcherProxy::match() {
     pcd_data_i_ = downsample_voxel(pcd_data_i_);
     pcd_data_j_ = downsample_voxel(pcd_data_j_);
 
-    LOG(INFO) << "Computing normal...";
-    compute_normal(pcd_data_i_, pos_i_);
-    compute_normal(pcd_data_j_, pos_j_);
-
     if (param_.icp_use_initial) {
+        LOG(INFO) << "Computing normal...";
+        compute_normal(pcd_data_i_, pos_i_);
+        compute_normal(pcd_data_j_, pos_j_);
+
         LOG(INFO) << "Computing features...";
         pcd_data_i_.feats = extract_feature(pcd_data_i_.pcd);
         pcd_data_j_.feats = extract_feature(pcd_data_j_.pcd);
@@ -51,39 +51,54 @@ LiDARMatches LiDARMatcherProxy::match() {
 
     LOG(INFO) << "Final matches is " << matches.size();
     // 绘制同名点
-    std::vector<Vector3d> key_match_i(matches.size()), key_match_j(matches.size());
-    for (int i = 0; i < matches.size(); ++i) {
-        key_match_i[i] = matches[i].point_i;
-        key_match_j[i] = matches[i].point_j;
-    }
+    {
+        std::vector<Vector3d> key_match_i(matches.size()), key_match_j(matches.size());
+        for (int i = 0; i < matches.size(); ++i) {
+            key_match_i[i] = matches[i].p_lidar1;
+            key_match_j[i] = matches[i].p_lidar2;
+        }
 
-    auto keypoint_to_sphere = [](const Vector3d &point, const Vector3d &color) {
-        auto sphere = open3d::geometry::TriangleMesh::CreateSphere(0.05, 8);
-        sphere->Translate(point);
-        sphere->PaintUniformColor(color);
-        return sphere;
-    };
-
-    auto keypoints_to_sphere = [](const std::vector<Vector3d> &points, const Vector3d &color) {
-        auto spheres = std::make_shared<open3d::geometry::TriangleMesh>();
-        for (const auto &point : points) {
+        auto keypoint_to_sphere = [](const Vector3d &point, const Vector3d &color) {
             auto sphere = open3d::geometry::TriangleMesh::CreateSphere(0.05, 8);
             sphere->Translate(point);
             sphere->PaintUniformColor(color);
+            return sphere;
+        };
 
-            *spheres += *sphere;
-        }
+        auto keypoints_to_sphere = [](const std::vector<Vector3d> &points, const Vector3d &color) {
+            auto spheres = std::make_shared<open3d::geometry::TriangleMesh>();
+            for (const auto &point : points) {
+                auto sphere = open3d::geometry::TriangleMesh::CreateSphere(0.05, 8);
+                sphere->Translate(point);
+                sphere->PaintUniformColor(color);
 
-        return spheres;
-    };
+                *spheres += *sphere;
+            }
 
-    pcd_data_i_.pcd->PaintUniformColor(Vector3d(1, 0.706, 0));
-    pcd_data_j_.pcd->PaintUniformColor(Vector3d(0, 0.651, 0.929));
-    open3d::visualization::DrawGeometries({pcd_data_i_.pcd, pcd_data_j_.pcd,
-                                           keypoints_to_sphere(key_match_i, Vector3d(1, 0, 0)),
-                                           keypoints_to_sphere(key_match_j, Vector3d(0, 1, 1))},
-                                          "Match", 1920, 1080);
+            return spheres;
+        };
 
+        pcd_data_i_.pcd->PaintUniformColor(Vector3d(1, 0.706, 0));
+        pcd_data_j_.pcd->PaintUniformColor(Vector3d(0, 0.651, 0.929));
+        open3d::visualization::DrawGeometries({pcd_data_i_.pcd, pcd_data_j_.pcd,
+                                               keypoints_to_sphere(key_match_i, Vector3d(1, 0, 0)),
+                                               keypoints_to_sphere(key_match_j, Vector3d(0, 1, 1))},
+                                              "Match", 1920, 1080);
+    }
+
+    // 获取 pos 信息
+    for (auto &m : matches) {
+        m.p_lidar1 += pcd_data_i_.offset;
+        m.p_lidar2 += pcd_data_j_.offset;
+
+        auto [t_pos1, q_pos1] = pos_i_.getd(m.t1);
+        auto [t_pos2, q_pos2] = pos_j_.getd(m.t2);
+
+        m.q_pos1 = q_pos1;
+        m.q_pos2 = q_pos2;
+        m.t_pos1 = t_pos1 + pos_i_.get_position_offset();
+        m.t_pos2 = t_pos2 + pos_j_.get_position_offset();
+    }
     return matches;
 }
 
@@ -324,13 +339,11 @@ LiDARMatches LiDARMatcherProxy::do_match(const PointCloudPtr &pcd_i, const Point
             pi = indices[0];
         }
 
-        LiDARMatch match;
-        match.point_i = keypoint_i;
-        match.point_j = keypoint_j;
-        match.gpstime_i = gps_i[pi];
-        match.gpstime_j = gps_j[pj];
-        match.i = pi;
-        match.j = pj;
+        LiDARCalibrate::TPS match;
+        match.p_lidar1 = keypoint_i;
+        match.p_lidar2 = keypoint_j;
+        match.t1 = gps_i[pi];
+        match.t2 = gps_j[pj];
 
         {
 #pragma omp critical

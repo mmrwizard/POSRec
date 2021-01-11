@@ -8,12 +8,9 @@
 
 #include <base/common.h>
 
+#include "lidar_calibrate.h"
+
 namespace h2o {
-struct LiDARMatch {
-    Vector3d point_i, point_j;
-    double gpstime_i, gpstime_j;
-    int i, j;
-};
 
 struct LiDARMatchParam {
     double voxel_size = 0.05;
@@ -33,7 +30,7 @@ struct LiDARMatchParam {
     double key_gamma = 0.5;  // 计算特征点的阈值，越小该范围越显著
 };
 
-using LiDARMatches = std::vector<LiDARMatch>;
+using LiDARMatches = std::vector<LiDARCalibrate::TPS>;
 LiDARMatchParam lidar_load_config(const std::string &path);
 LiDARMatches lidar_match(const std::string &las_i, const std::string &las_j, const std::string &pos_i,
                          const std::string &pos_j, const LiDARMatchParam &param = LiDARMatchParam());
