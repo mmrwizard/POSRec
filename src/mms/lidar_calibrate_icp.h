@@ -105,6 +105,8 @@ struct LiDARCalibrateIcpParam {
 
     double lambda_point = 0.9;
     double lambda_body = 0.1;
+
+    static LiDARCalibrateIcpParam load_config(const std::string &path);
 };
 
 class LiDARCalibrateIcp {

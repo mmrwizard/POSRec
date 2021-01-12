@@ -8,6 +8,7 @@
 #include "lidar_calibrate_cost.h"
 #include "pos.h"
 
+#include <base/json.h>
 #include <ceres/ceres.h>
 #include <laszip/laszip_api.h>
 
@@ -169,6 +170,7 @@ void LiDARCalibrateIcp::evaluate() {
     ceres::Problem::EvaluateOptions evops;
     evops.apply_loss_function = false;
     evops.residual_blocks = blocks_;
+    evops.num_threads = Eigen::nbThreads();
 
     std::vector<double> residuals;
     problem_->Evaluate(evops, nullptr, &residuals, nullptr, nullptr);
@@ -303,6 +305,32 @@ LiDARCalibrateIcp::load_and_downsample_las(const std::string &path) {
     }
 
     return std::make_tuple(points, gpstime);
+}
+
+LiDARCalibrateIcpParam LiDARCalibrateIcpParam::load_config(const std::string &path) {
+    LiDARCalibrateIcpParam param;
+    nlohmann::json j = read_json_file(path);
+    if (j.count("LiDARCalibrateIcp") == 0) {
+        return param;
+    }
+
+    j = j["LiDARCalibrateIcp"];
+    if (j.count("IcpMaxDistance"))
+        param.icp_max_distance = j["IcpMaxDistance"];
+    if (j.count("IcpMaxIteration"))
+        param.icp_max_iteration = j["IcpMaxIteration"];
+    if (j.count("StdPoint"))
+        param.std_point = j["StdPoint"];
+    if (j.count("StdBodyAngle"))
+        param.std_body_angle = j["StdBodyAngle"] * DEG2RAD;
+    if (j.count("StdBodyTrans"))
+        param.std_body_trans = j["StdBodyTrans"];
+    if (j.count("LambdaPoint"))
+        param.lambda_point = j["LambdaPoint"];
+    if (j.count("LambdaBody"))
+        param.lambda_body = j["LambdaBody"];
+
+    return param;
 }
 
 } // namespace h2o

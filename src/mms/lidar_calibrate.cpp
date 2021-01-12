@@ -351,7 +351,7 @@ LiDARCalibrate::Config LiDARCalibrate::Config::load_config(const std::string &pa
     if (j.count("Epoch"))
         config.epoch_clean = j["Epoch"];
     if (j.count("StdBodyAngle"))
-        config.std_body_angle = j["StdBodyAngle"];
+        config.std_body_angle = j["StdBodyAngle"] * DEG2RAD;
     if (j.count("StdBodyTrans"))
         config.std_body_trans = j["StdBodyTrans"];
     if (j.count("StdLiDARPoint"))

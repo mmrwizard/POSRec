@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     auto arguments = options.parse(argc, argv);
 
     if (arguments.count("help") || arguments.count("config") == 0) {
-        std::cout << options.help({"MMSLiDARCalibrate"}) << std::endl;
+        std::cout << options.help({"MMSLiDARCalibrateIcp"}) << std::endl;
         return 1;
     }
 
@@ -54,7 +54,9 @@ int main(int argc, char **argv) {
     Quaterniond dq;
     Vector3d dt;
 
-    LiDARCalibrateIcp calibrator(paths_las[0], paths_las[1], paths_pos[0], paths_pos[1]);
+    LiDARCalibrateIcpParam param = LiDARCalibrateIcpParam::load_config(path_config);
+
+    LiDARCalibrateIcp calibrator(paths_las[0], paths_las[1], paths_pos[0], paths_pos[1], param);
     calibrator.set_body(q_body, t_body);
 
     std::tie(dq, dt) = calibrator.calibrate();
