@@ -6,9 +6,11 @@
  */
 
 #include "lidar_calibrate.h"
+#include "lidar_calibrate_cost.h"
 #include "rapidcsv.h"
 
 #include <base/base.h>
+#include <base/json.h>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
@@ -75,36 +77,6 @@ private:
     const LiDARCalibrate::TPS &tps_;
 };
 
-class BodyRotationRegularizationCostFunctor {
-public:
-    template <typename T> bool operator()(const T *const ptr_dq_body, T *residual) const {
-        using Vector3JetT = Eigen::Matrix<T, 3, 1>;
-        using QuaternionJetT = Eigen::Quaternion<T>;
-        QuaternionJetT dq_body(ptr_dq_body);
-        using AngleAxisJetT = Eigen::AngleAxis<T>;
-
-        T theta = AngleAxisJetT(dq_body).angle();
-        residual[0] = theta;
-
-        return true;
-    }
-
-private:
-};
-
-class BodyTranslationRegularizationCostFunctor {
-public:
-    template <typename T> bool operator()(const T *const ptr_dt_body, T *residual) const {
-        using Vector3JetT = Eigen::Matrix<T, 3, 1>;
-
-        residual[0] = ptr_dt_body[0];
-        residual[1] = ptr_dt_body[1];
-        residual[2] = ptr_dt_body[2];
-
-        return true;
-    }
-};
-
 LiDARCalibrate::LiDARCalibrate(const Config &config) : param_(config) {
     q_body_ = dq_body_ = Quaterniond::Identity();
     t_body_ = dt_body_ = Vector3d::Zero();
@@ -163,8 +135,9 @@ void LiDARCalibrate::solve() {
 
         auto block = problem_->AddResidualBlock(
             cost,
-            new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_lidar_point * param_.std_lidar_point * num_gcps),
-                                  ceres::TAKE_OWNERSHIP),
+            new ceres::ScaledLoss(
+                nullptr, 1.0 / (param_.std_lidar_point * param_.std_lidar_point * num_gcps) * param_.lambda_gcp,
+                ceres::TAKE_OWNERSHIP),
             dq_body_.coeffs().data(), dt_body_.data());
         blocks_gcps_.push_back(block);
     }
@@ -173,7 +146,8 @@ void LiDARCalibrate::solve() {
             new ceres::AutoDiffCostFunction<TpsCostFunctor, 3, 4, 3>(new TpsCostFunctor(tps_[i], q_body_, t_body_));
         auto block = problem_->AddResidualBlock(
             cost,
-            new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_lidar_point * param_.std_lidar_point * num_tps),
+            new ceres::ScaledLoss(nullptr,
+                                  1.0 / (param_.std_lidar_point * param_.std_lidar_point * num_tps) * param_.lambda_tps,
                                   ceres::TAKE_OWNERSHIP),
             dq_body_.coeffs().data(), dt_body_.data());
         blocks_tps_.push_back(block);
@@ -183,10 +157,11 @@ void LiDARCalibrate::solve() {
         // 加入角度信息的带权观测值
         ceres::CostFunction *cost = new ceres::AutoDiffCostFunction<BodyRotationRegularizationCostFunctor, 1, 4>(
             new BodyRotationRegularizationCostFunctor());
-        problem_->AddResidualBlock(cost,
-                                   new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_body_angle * param_.std_body_angle),
-                                                         ceres::TAKE_OWNERSHIP),
-                                   dq_body_.coeffs().data());
+        problem_->AddResidualBlock(
+            cost,
+            new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_body_angle * param_.std_body_angle) * param_.lambda_body,
+                                  ceres::TAKE_OWNERSHIP),
+            dq_body_.coeffs().data());
     }
 
     {
@@ -195,7 +170,8 @@ void LiDARCalibrate::solve() {
             new BodyTranslationRegularizationCostFunctor());
         problem_->AddResidualBlock(
             cost,
-            new ceres::ScaledLoss(nullptr, 1.0 / (param_.std_body_translate * param_.std_body_translate * 3),
+            new ceres::ScaledLoss(nullptr,
+                                  1.0 / (param_.std_body_trans * param_.std_body_trans * 3) * param_.lambda_body,
                                   ceres::TAKE_OWNERSHIP),
             dt_body_.data());
     }
@@ -209,11 +185,10 @@ void LiDARCalibrate::solve() {
 
     ceres::Solver::Options op;
     op.linear_solver_type = ceres::DENSE_QR;
-    op.num_threads = 1;
+    op.num_threads = Eigen::nbThreads();
 
     ceres::Solver::Summary summary;
     ceres::Solve(op, problem_.get(), &summary);
-    LOG(INFO) << summary.BriefReport();
 
     if (!summary.IsSolutionUsable()) {
         dq_body_ = Quaterniond::Identity();
@@ -255,7 +230,7 @@ void LiDARCalibrate::clean() {
         }
     }
 
-    LOG(INFO) << string_printf("reserved %d/%d points with sigma0 %.2lf", reserved.size(), tps_.size(), sigma_pixel);
+    LOG(INFO) << string_printf("Reserved %d/%d points with sigma0 %.2lf", reserved.size(), tps_.size(), sigma_pixel);
 
     // 移除对应 id 的 track
     auto tps_clone = tps_;
@@ -361,5 +336,33 @@ std::vector<LiDARCalibrate::TPS> LiDARCalibrate::TPS::load(const std::string &pa
     }
 
     return tps;
+}
+LiDARCalibrate::Config LiDARCalibrate::Config::load_config(const std::string &path) {
+    LiDARCalibrate::Config config;
+    nlohmann::json j = read_json_file(path);
+    if (j.count("LiDARCalibrate") == 0) {
+        return config;
+    }
+
+    j = j["LiDARCalibrate"];
+
+    if (j.count("WithTranslate"))
+        config.with_translate = j["WithTranslate"];
+    if (j.count("Epoch"))
+        config.epoch_clean = j["Epoch"];
+    if (j.count("StdBodyAngle"))
+        config.std_body_angle = j["StdBodyAngle"];
+    if (j.count("StdBodyTrans"))
+        config.std_body_trans = j["StdBodyTrans"];
+    if (j.count("StdLiDARPoint"))
+        config.std_lidar_point = j["StdLiDARPoint"];
+    if (j.count("LambdaGcp"))
+        config.lambda_gcp = j["LambdaGcp"];
+    if (j.count("LambdaTps"))
+        config.lambda_tps = j["LambdaTps"];
+    if (j.count("LambdaBody"))
+        config.lambda_body = j["LambdaBody"];
+
+    return config;
 }
 } // namespace h2o

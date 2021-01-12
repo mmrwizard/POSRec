@@ -51,7 +51,7 @@ LiDARMatches LiDARMatcherProxy::match() {
 
     LOG(INFO) << "Final matches is " << matches.size();
     // 绘制同名点
-    {
+    if (param_.show_match) {
         std::vector<Vector3d> key_match_i(matches.size()), key_match_j(matches.size());
         for (int i = 0; i < matches.size(); ++i) {
             key_match_i[i] = matches[i].p_lidar1;

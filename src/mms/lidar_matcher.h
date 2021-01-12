@@ -28,11 +28,12 @@ struct LiDARMatchParam {
 
     double key_radius = 0.5; // 计算特征点的半径，最好和 icp 特征点的最大半径相等
     double key_gamma = 0.5;  // 计算特征点的阈值，越小该范围越显著
+
+    bool show_match = false;
 };
 
 using LiDARMatches = std::vector<LiDARCalibrate::TPS>;
 LiDARMatchParam lidar_load_config(const std::string &path);
 LiDARMatches lidar_match(const std::string &las_i, const std::string &las_j, const std::string &pos_i,
                          const std::string &pos_j, const LiDARMatchParam &param = LiDARMatchParam());
-void save_matches(const std::string &path);
 } // namespace h2o

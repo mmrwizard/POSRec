@@ -43,6 +43,8 @@ LiDARMatchParam lidar_load_config(const std::string &path) {
         param.key_radius = j["KeypointRadius"];
     if (j.count("KeyGamma"))
         param.key_gamma = j["KeyGamma"];
+    if (j.count("ShowMatch"))
+        param.show_match = j["ShowMatch"];
 
     return param;
 }

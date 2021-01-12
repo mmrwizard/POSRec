@@ -20,6 +20,7 @@ typedef internal::ResidualBlock *ResidualBlockId;
 } // namespace ceres
 
 namespace h2o {
+
 class LiDARCalibrate {
 public:
     struct GCP {
@@ -58,8 +59,14 @@ public:
         int epoch_clean = 5;
 
         double std_body_angle = 3.0 * DEG2RAD;
-        double std_body_translate = 0.05;
+        double std_body_trans = 0.05;
         double std_lidar_point = 0.02;
+
+        double lambda_gcp = 0.5;
+        double lambda_tps = 0.9;
+        double lambda_body = 0.1;
+
+        static Config load_config(const std::string &path);
     };
 
 public:

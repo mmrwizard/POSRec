@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 
     auto arguments = options.parse(argc, argv);
 
-    if (arguments.count("help")) {
+    if (arguments.count("help") || arguments.count("config") == 0) {
         std::cout << options.help({"MMSLiDARCalibrate"}) << std::endl;
         return 1;
     }
@@ -45,11 +45,14 @@ int main(int argc, char **argv) {
     path_tps = QFileInfo(QString::fromLocal8Bit(path_tps.c_str())).absoluteFilePath().toStdString();
     path_config = QFileInfo(QString::fromLocal8Bit(path_config.c_str())).absoluteFilePath().toStdString();
 
-    LiDARCalibrate calibrator;
-
     Quaterniond q_body;
     Vector3d t_body;
     std::tie(q_body, t_body) = HsrFile::read_lidar_body(path_config);
+
+    Quaterniond dq;
+    Vector3d dt;
+
+    LiDARCalibrate calibrator;
     calibrator.set_body(q_body, t_body);
 
     std::vector<LiDARCalibrate::GCP> gcps;
@@ -64,8 +67,6 @@ int main(int argc, char **argv) {
         calibrator.set_tps(tps);
     }
 
-    Quaterniond dq;
-    Vector3d dt;
     std::tie(dq, dt) = calibrator.calibrate();
 
     q_body = dq * q_body;
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
     std::string name = get_filename_noext(path_config);
     name = join_paths(get_directory(path_config), name + "_cal.json");
 
-    nlohmann::json config;
+    nlohmann::json config = read_json_file(path_config);
     nlohmann::json j;
     j["X"] = t_body.x();
     j["Y"] = t_body.y();

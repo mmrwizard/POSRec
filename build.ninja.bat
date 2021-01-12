@@ -7,8 +7,7 @@ cmake -GNinja ^
     -DH2O_BUILD_SHARED=ON ^
     -DH2O_BUILD_TEST=ON ^
     -DH2O_BUILD_DOG=OFF ^
-    -DH2O_BUILD_SERIAL=OFF ^
-    -DH2O_VERSION_NAME=kinsar ^
+    -DH2O_BUILD_SERIAL=ON ^
     ../
 
 cd ..
