@@ -12,7 +12,7 @@
 
 namespace h2o {
 
-LiDARMatchParam lidar_load_config(const std::string &path) {
+LiDARMatchParam lidar_match_config(const std::string &path) {
     nlohmann::json j = read_json_file(path);
     if (j.count("LiDARMatch") == 0) {
         return LiDARMatchParam();

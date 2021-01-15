@@ -78,11 +78,27 @@ LiDARMatches LiDARMatcherProxy::match() {
             return spheres;
         };
 
+        auto matches_to_lines = [](const std::vector<Vector3d> &points_i, const std::vector<Vector3d> &points_j,
+                                   const Vector3d &color) {
+            std::vector<Vector3d> all_points;
+            all_points.insert(end(all_points), begin(points_i), end(points_i));
+            all_points.insert(end(all_points), begin(points_j), end(points_j));
+            std::vector<Vector2i> indices(points_i.size());
+            for (int i = 0; i < points_i.size(); ++i) {
+                indices[i].x() = i;
+                indices[i].y() = i + points_i.size();
+            }
+
+            auto lineset = std::make_shared<open3d::geometry::LineSet>(all_points, indices);
+            return lineset;
+        };
+
         pcd_data_i_.pcd->PaintUniformColor(Vector3d(1, 0.706, 0));
         pcd_data_j_.pcd->PaintUniformColor(Vector3d(0, 0.651, 0.929));
         open3d::visualization::DrawGeometries({pcd_data_i_.pcd, pcd_data_j_.pcd,
                                                keypoints_to_sphere(key_match_i, Vector3d(1, 0, 0)),
-                                               keypoints_to_sphere(key_match_j, Vector3d(0, 1, 1))},
+                                               keypoints_to_sphere(key_match_j, Vector3d(0, 1, 1)),
+                                               matches_to_lines(key_match_i, key_match_j, Vector3d(0, 0, 1))},
                                               "Match", 1920, 1080);
     }
 
@@ -218,7 +234,7 @@ PointFeaturePtr LiDARMatcherProxy::extract_feature(const PointCloudPtr &pcd) {
 
 std::tuple<PointCloudPtr, PointIndices> LiDARMatcherProxy::detect_keypoints(const PointCloudPtr &pcd) {
     PointCloudPtr keypoints = open3d::geometry::keypoint::ComputeISSKeypoints(
-        *pcd, param_.key_radius, param_.key_radius, param_.key_gamma, param_.key_gamma, param_.ne_max_knn);
+        *pcd, param_.key_radius, param_.key_radius, param_.key_gamma, param_.key_gamma);
 
     PointIndices indices(keypoints->points_.size());
     open3d::geometry::KDTreeFlann kdtree(*pcd);

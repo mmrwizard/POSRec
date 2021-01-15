@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
 
     LiDARMatchParam param;
     if (!path_config.empty())
-        param = lidar_load_config(path_config);
+        param = lidar_match_config(path_config);
 
     LiDARMatches matches = lidar_match(path_pcdi, path_pcdj, path_posi, path_posj, param);
 

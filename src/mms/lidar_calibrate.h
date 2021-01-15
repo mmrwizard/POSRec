@@ -85,7 +85,7 @@ protected:
     void clean();
     void evaluate();
 
-protected:
+public:
     // 初始参数
     Quaterniond q_body_;
     Vector3d t_body_;

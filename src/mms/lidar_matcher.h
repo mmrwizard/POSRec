@@ -33,7 +33,7 @@ struct LiDARMatchParam {
 };
 
 using LiDARMatches = std::vector<LiDARCalibrate::TPS>;
-LiDARMatchParam lidar_load_config(const std::string &path);
+LiDARMatchParam lidar_match_config(const std::string &path);
 LiDARMatches lidar_match(const std::string &las_i, const std::string &las_j, const std::string &pos_i,
                          const std::string &pos_j, const LiDARMatchParam &param = LiDARMatchParam());
 } // namespace h2o
