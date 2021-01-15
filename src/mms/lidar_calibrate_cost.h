@@ -34,7 +34,7 @@ public:
 
         residual[0] = ptr_dt_body[0];
         residual[1] = ptr_dt_body[1];
-        residual[2] = ptr_dt_body[2];
+        residual[2] = ptr_dt_body[2] * 10.0;
 
         return true;
     }
