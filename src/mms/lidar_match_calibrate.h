@@ -8,27 +8,10 @@
 
 #include "lidar_calibrate.h"
 #include "lidar_matcher.h"
+#include "open3d_fwd.h"
 #include "pos.h"
 
-// forward declaration
-namespace open3d {
-namespace geometry {
-class PointCloud;
-} // namespace geometry
-namespace pipelines {
-namespace registration {
-class Feature;
-} // namespace registration
-} // namespace pipelines
-} // namespace open3d
-
 namespace h2o {
-using PointCloud = open3d::geometry::PointCloud;
-using PointCloudPtr = std::shared_ptr<open3d::geometry::PointCloud>;
-using PointIndices = std::vector<int>;
-using PointFeature = open3d::pipelines::registration::Feature;
-using PointFeaturePtr = std::shared_ptr<PointFeature>;
-
 class LiDARMatchCalibrate {
 public:
     LiDARMatchCalibrate(const std::string &las_i, const std::string &las_j, const std::string &pos_i,
