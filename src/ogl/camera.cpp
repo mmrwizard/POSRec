@@ -1,11 +1,11 @@
 /*!
-* \file camera.cpp
-*
-* \author Han
-* \date 2017/04/06
-*
-* 相机操作
-*/
+ * \file camera.cpp
+ *
+ * \author Han
+ * \date 2017/04/06
+ *
+ * 相机操作
+ */
 #include <ogl/camera.h>
 
 #include <opencv2/calib3d.hpp>
@@ -95,6 +95,20 @@ Eigen::Matrix4f translate(const Eigen::Vector3f &v) {
     return Eigen::Affine3f(Eigen::Translation<float, 3>(v)).matrix();
 }
 
+Eigen::Matrix4f perspective(float vfov, float aspect, float znear, float zfar) {
+    float const tanHalfFovy = tan(vfov / static_cast<float>(2));
+
+    Eigen::Matrix4f P = Matrix4f::Zero();
+
+    P(0, 0) = 1.0f / (aspect * tanHalfFovy);
+    P(1, 1) = 1.0f / tanHalfFovy;
+    P(2, 2) = -(znear + zfar) / (zfar - znear);
+    P(2, 3) = -2 * znear * zfar / (zfar - znear);
+    P(3, 2) = -1;
+    P(3, 3) = 0.0;
+    return P;
+}
+
 Vector3f CameraParameters::convert_2d_to_3d(const Vector2f &point2d) {
     Matrix4f model, view, proj;
     std::tie(model, view, proj) = get_mvp();
@@ -125,13 +139,7 @@ std::tuple<Matrix4f, Matrix4f, Matrix4f> CameraParameters::get_mvp() {
     Matrix4f model, view, proj;
     view = lookAt(eye, center, up);
 
-    float fH = std::tan(view_angle / 360.0f * M_PI) * eye.z();
-    float fW = fH * (float)size.x() / (float)size.y();
-    if (is_ortho) {
-        proj = ortho(-fW, fW, -fH, fH, znear, zfar);
-    } else {
-        proj = frustum(-fW, fW, -fH, fH, znear, zfar);
-    }
+    proj = perspective(view_angle * DEG2RAD, (double)size.x() / (double)size.y(), znear, zfar);
 
     Matrix4f rotation = arcball.matrix();
     model = rotation * scale(Vector3f::Constant(zoom * model_zoom)) * translate(model_translation);
@@ -222,4 +230,4 @@ void CameraParameters::end_rotate(const Vector2f &screen_point) {
     is_rotate = false;
 }
 
-} // end h2o
+} // namespace h2o

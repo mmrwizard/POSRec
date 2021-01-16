@@ -305,4 +305,6 @@ Matrix4f scale(const Vector3f &v);
 */
 Matrix4f translate(const Vector3f &v);
 
+Matrix4f perspective(float vfov, float aspect, float znear, float zfar);
+
 } // end h2o

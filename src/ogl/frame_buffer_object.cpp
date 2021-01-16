@@ -102,48 +102,49 @@ void GLFrameBufferObject::blit(const Vector2i &pos, GLuint target) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GLFrameBufferObject::debug_color_depth() {
-    std::vector<uint8_t> temp(width_ * height_ * 4);
+std::tuple<cv::Mat, cv::Mat> GLFrameBufferObject::debug_color_depth() {
+    cv::Mat image_color = cv::Mat::zeros(height_, width_, CV_8UC4);
+    cv::Mat image_depth = cv::Mat::zeros(height_, width_, CV_32F);
+
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    glReadPixels(0, 0, width_, height_, GL_BGRA, GL_UNSIGNED_BYTE, temp.data());
+    glReadPixels(0, 0, width_, height_, GL_BGRA, GL_UNSIGNED_BYTE, image_color.data);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-    cv::Mat image_color(height_, width_, CV_8UC4, temp.data());
-
-    std::vector<float> depth_temp(width_ * height_);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    glReadPixels(0, 0, width_, height_, GL_DEPTH_COMPONENT, GL_FLOAT, depth_temp.data());
+    glReadPixels(0, 0, width_, height_, GL_DEPTH_COMPONENT, GL_FLOAT, image_depth.data);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-
-    cv::Mat image_depth(height_, width_, CV_32F, depth_temp.data());
 
     CHECK_OPENGL_ERROR();
+
+    return std::make_tuple(image_color, image_depth);
 }
 
-void GLFrameBufferObject::debug_color() {
-    std::vector<uint8_t> temp(width_ * height_ * 4);
+cv::Mat GLFrameBufferObject::debug_color() {
+    cv::Mat image_color = cv::Mat::zeros(height_, width_, CV_8UC4);
+
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    glReadPixels(0, 0, width_, height_, GL_BGRA, GL_UNSIGNED_BYTE, temp.data());
+    glReadPixels(0, 0, width_, height_, GL_BGRA, GL_UNSIGNED_BYTE, image_color.data);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-    cv::Mat image_color(height_, width_, CV_8UC4, temp.data());
+    return image_color;
 }
 
-void GLFrameBufferObject::debug_depth() {
-    std::vector<float> depth_temp(width_ * height_);
+cv::Mat GLFrameBufferObject::debug_depth() {
+    cv::Mat image_depth = cv::Mat::zeros(height_, width_, CV_32F);
+
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    glReadPixels(0, 0, width_, height_, GL_DEPTH_COMPONENT, GL_FLOAT, depth_temp.data());
+    glReadPixels(0, 0, width_, height_, GL_DEPTH_COMPONENT, GL_FLOAT, image_depth.data);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-    cv::Mat image_depth(height_, width_, CV_32F, depth_temp.data());
+    return image_depth;
 }
 
 void GLFrameBufferObject::delete_color_texture() {

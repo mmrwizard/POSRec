@@ -45,9 +45,9 @@ public:
 
     Vector2i get_size() const { return {width_, height_}; }
     int get_samples() const { return samples_; }
-    void debug_color_depth();
-    void debug_color();
-    void debug_depth();
+    std::tuple<cv::Mat, cv::Mat> debug_color_depth();
+    cv::Mat debug_color();
+    cv::Mat debug_depth();
 
 protected: // methods
     //! Deletes/releases the color texture

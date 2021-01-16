@@ -1,0 +1,23 @@
+#version 330
+
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//	EyeDome Lighting
+//
+//		C.B. - 23 avril 2008
+//
+//	IN:	Depth buffer of the scene
+//			r = recorded z, in [0:1]
+//	OUT:	EDL shaded image
+//
+///////////////////////////////////////////////////////////////////////////////////////
+uniform mat4 mvp;
+in vec3 position;
+in vec2 texcoord;
+out vec2 uv;
+void main ()
+{
+	uv = texcoord;
+	gl_Position = mvp * vec4(position, 1.0);
+}
