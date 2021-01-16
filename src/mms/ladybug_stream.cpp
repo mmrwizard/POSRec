@@ -261,4 +261,10 @@ bool LadybugImage::is_valid(const Vector2d &angle) const {
     return false;
 }
 
+std::tuple<Quaterniond, Vector3d> LadybugImage::get_extrinsic() const {
+    Quaterniond q = q_world * q_body;
+    Vector3d t = q_world * t_body + t_world;
+    return std::make_tuple(q, t);
+}
+
 } // namespace h2o

@@ -47,6 +47,9 @@ struct LadybugImage {
     Vector2d to_angle(const Vector3d &local) const;
 
     bool is_valid(const Vector2d &angle) const;
+
+    // Pw = R * Pc + t
+    std::tuple<Quaterniond, Vector3d> get_extrinsic() const;
 };
 
 class LadybugStream {
