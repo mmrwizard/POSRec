@@ -106,7 +106,11 @@ cv::Mat LiDARRender::draw_color(const LadybugImage &camera) {
     // pinhole.extrinsic_.block<3, 3>(0, 0) *= O;
     view_control.ConvertFromPinholeCameraParameters(pinhole);
 
-    vis.CaptureScreenImage("test.jpg");
+    auto rendered = vis.CaptureDepthFloatBuffer();
+
+    cv::Mat image = cv::Mat(rendered->height_, rendered->width_, CV_32F, rendered->data_.data());
+
+    open3d::visualization::DrawGeometries({rendered});
 
     return cv::Mat();
 }

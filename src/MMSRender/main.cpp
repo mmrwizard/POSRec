@@ -77,7 +77,11 @@ int main(int argc, char **argv) {
     render.load_las(path_las);
 
     auto images = stream->get_image_infos();
+    int i = 0;
     for (auto image : images) {
+        if (++i < 50) {
+            continue;
+        }
         render.draw_color(image);
     }
 
