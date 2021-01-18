@@ -7,3 +7,4 @@ add_subdirectory(mms)
 
 add_subdirectory(MMSConverter)
 add_subdirectory(LiDARCalibrate)
+add_subdirectory(POSRec)
