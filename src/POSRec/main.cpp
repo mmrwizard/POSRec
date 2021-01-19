@@ -13,7 +13,50 @@
 
 using namespace h2o;
 
-void load_cpts();
+void caculateRT(const std::vector<Eigen::Vector3d> &pts1, const std::vector<Eigen::Vector3d> &pts2, cv::Mat &R,
+                cv::Mat &T) {
+    //求中心点
+    Eigen::Vector3d p1, p2;
+    int N = pts1.size();
+    for (int i = 0; i < N; i++) {
+        p1 += pts1[i];
+        p2 += pts2[i];
+    }
+    p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
+    p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
+    // 【2】得到去中心坐标
+    std::vector<Eigen::Vector3d> q1(N), q2(N);
+    for (int i = 0; i < N; i++) {
+        q1[i] = pts1[i] - p1;
+        q2[i] = pts2[i] - p2;
+    }
+
+    //【3】计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
+    Eigen::Matrix3d W = Eigen::Matrix3d::Zero();
+    for (int i = 0; i < N; i++)
+        W += Eigen::Vector3d(q1[i].x, q1[i].y, q1[i].z) * Eigen::Vector3d(q2[i].x, q2[i].y, q2[i].z).transpose();
+
+    // 【4】对  W 进行SVD 奇异值分解
+    Eigen::JacobiSVD<Eigen::Matrix3d> svd(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::Matrix3d U = svd.matrixU();
+    Eigen::Matrix3d V = svd.matrixV();
+
+    // 【5】计算旋转 和平移矩阵 R  和 t,  R= V *M* UT
+    double det = (U * V.transpose()).determinant();
+    Eigen::Matrix3d M;
+    M << 1, 0, 0, 0, 1, 0, 0, 0, det;
+
+    Eigen::Matrix3d R_ = V * M * (U.transpose());
+
+    // t =  p' - R * p
+    Eigen::Vector3d t_ = Eigen::Vector3d(p2.x, p2.y, p2.z) - R_ * Eigen::Vector3d(p1.x, p1.y, p1.z);
+
+    // 【6】格式转换 convert to cv::Mat
+    R = (cv::Mat_<double>(3, 3) << R_(0, 0), R_(0, 1), R_(0, 2), R_(1, 0), R_(1, 1), R_(1, 2), R_(2, 0), R_(2, 1),
+         R_(2, 2));
+
+    T = (cv::Mat_<double>(3, 1) << t_(0, 0), t_(1, 0), t_(2, 0));
+}
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
