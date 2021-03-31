@@ -1,12 +1,44 @@
 #include "pos_rectify.h"
 #include <base/base.h>
 #include <iostream>
+#include <ceres/ceres.h>
+#include <ceres/cost_function.h>
+#include <ceres/autodiff_cost_function.h>
+
+using namespace ceres;
 
 namespace h2o {
-void Pos_rec::calculate_rotation(const std::string path_control_pts) {
 
-    std::vector<Eigen::Vector3d> cpt_r;
-    std::vector<Eigen::Vector3d> cpt_o;
+    struct CostFunctor 
+    {
+    template <typename T> bool operator()(const T *const x, T *residual) const { residual[0] = 10.0 - x[0];
+        return true;
+    }
+    };
+    
+    void Pos_rec::test_ceres() { 
+        google::InitGoogleLogging("");
+
+        double inital_x = 5.0;
+        double x = inital_x;
+
+        Problem problem;
+
+        CostFunction *cost_function = new AutoDiffCostFunction<CostFunctor, 1, 1>(new CostFunctor);
+        problem.AddResidualBlock(cost_function, nullptr, &x);
+
+        
+
+    }
+
+    std::tuple<Matrix3d, Vector3d> Pos_rec::calculate_rotation(const std::string path_control_pts) {
+        std::vector<double> gps_time;
+        std::vector<double> x_pointcloud;
+        std::vector<double> y_pointcloud;
+        std::vector<double> z_pointcloud;
+        std::vector<double> x_measure;
+        std::vector<double> y_measure;
+        std::vector<double> z_measure;
 
     std::ifstream cpt_file(string_utf8_to_fstream(path_control_pts));
     std::string line;
@@ -27,34 +59,44 @@ void Pos_rec::calculate_rotation(const std::string path_control_pts) {
         } catch (const std::exception &) {
             continue;
         }
+        gps_time.push_back(std::stod(chunks[0]));
+        x_pointcloud.push_back(std::stod(chunks[1]));
+        y_pointcloud.push_back(std::stod(chunks[2]));
+        z_pointcloud.push_back(std::stod(chunks[3]));
+        x_measure.push_back(std::stod(chunks[4]));
+        y_measure.push_back(std::stod(chunks[5]));
+        z_measure.push_back(std::stod(chunks[6]));
+    }
+ 
+    std::vector<Vector3d> control_pointcloud;
+    std::vector<Vector3d> control_measure;
+    int ncontrol = gps_time.size();
+    control_pointcloud.resize(ncontrol);
+    control_measure.resize(ncontrol);
 
-        Eigen::Vector3d temp_o(std::stod(chunks[0]), std::stod(chunks[1]), std::stod(chunks[2]));
-        Eigen::Vector3d temp_r(std::stod(chunks[3]), std::stod(chunks[4]), std::stod(chunks[5]));
-        cpt_o.push_back(temp_o);
-        cpt_r.push_back(temp_r);
+    for (int i=0;i<ncontrol;i++) {
+        control_pointcloud[i] = Vector3d{x_pointcloud[i], y_pointcloud[i], z_pointcloud[i]};
+        control_measure[i] = Vector3d{x_measure[i], y_measure[i], z_measure[i]};
     }
 
-    //计算RT
-    Eigen::Matrix3d R;
-    Eigen::Vector3d T;
-    // std::tuple(R,T)=calculateRT(cpt_o, cpt_r);
+    Vector3d p1,p2;
+    p1 = p2 = Vector3d::Zero();
 
-    //求中心点
-    Eigen::Vector3d p1, p2;
-
-    int N = cpt_o.size();
+    int N = control_pointcloud.size();
     for (int i = 0; i < N; i++) {
-        p1 += cpt_o[i];
-        p2 += cpt_r[i];
+        p1 += control_pointcloud[i] ;
+        p2 += control_measure[i] ;
     }
+    
 
     p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
     p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
+    std::cout << p2 << std::endl;
     // 得到去中心坐标
     std::vector<Eigen::Vector3d> q1(N), q2(N);
     for (int i = 0; i < N; i++) {
-        q1[i] = cpt_o[i] - p1;
-        q2[i] = cpt_r[i] - p2;
+        q1[i] = control_pointcloud[i] - p1;
+        q2[i] = control_measure[i] - p2;
     }
 
     //计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
@@ -79,17 +121,19 @@ void Pos_rec::calculate_rotation(const std::string path_control_pts) {
     Eigen::Vector3d t_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
 
     //计算POS
-    Eigen::Vector3d pos_o(438061.025, 3402682.112, 429.882);
-    Eigen::Vector3d pos_r(438062.16, 3402682.767, 432.125);
+    Eigen::Vector3d pos_o(360044.47000000, 3435633.75500000, 927.17100000);
+    Eigen::Vector3d pos_r(360044.27100000, 3435633.74300000, 927.80000000);
     auto chk = pos_r - t_ - R_ * pos_o;
     std::cout << chk.x() << "  " << chk.y() << "  " << chk.z() << std::endl;
 
     double x_sum = 0, y_sum = 0, z_sum = 0;
-    for (int i = 0; i < cpt_r.size(); i++) {
-        x_sum += cpt_r[i](0);
-        y_sum += cpt_r[i](1);
-        z_sum += cpt_r[i](2);
+    for (int i = 0; i < control_measure.size(); i++) {
+        x_sum += control_measure[i](0);
+        y_sum += control_measure[i](1);
+        z_sum += control_measure[i](2);
     }
-    Eigen::Vector3d t(x_sum / cpt_r.size(), y_sum / cpt_r.size(), z_sum / cpt_r.size());
-}
+    Eigen::Vector3d t(x_sum / control_measure.size(), y_sum / control_measure.size(), z_sum / control_measure.size());
+
+    return std::make_tuple(R_, t_);
+    }
 }

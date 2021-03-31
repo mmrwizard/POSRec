@@ -14,50 +14,6 @@
 
 using namespace h2o;
 
-std::tuple<Eigen::Matrix3d, Eigen::Vector3d>
-    calculateRT(const std::vector<Eigen::Vector3d> pts_o, const std::vector<Eigen::Vector3d> pts_r) {
-    //求中心点
-    Eigen::Vector3d p1, p2;
-
-    int N = pts_o.size();
-    for (int i = 0; i < N; i++) {
-        p1 += pts_o[i];
-        p2 += pts_r[i];
-    }
-
-    p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
-    p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
-    // 得到去中心坐标
-    std::vector<Eigen::Vector3d> q1(N), q2(N);
-    for (int i = 0; i < N; i++) {
-        q1[i] = pts_o[i] - p1;
-        q2[i] = pts_r[i] - p2;
-    }
-
-    //计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
-    Eigen::Matrix3d W = Eigen::Matrix3d::Zero();
-    for (int i = 0; i < N; i++)
-        W += Eigen::Vector3d(q1[i].x(), q1[i].y(), q1[i].z()) * Eigen::Vector3d(q2[i].x(), q2[i].y(), q2[i].z()).transpose();
-
-    //对  W 进行SVD 奇异值分解
-    Eigen::JacobiSVD<Eigen::Matrix3d> svd(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    Eigen::Matrix3d U = svd.matrixU();
-    Eigen::Matrix3d V = svd.matrixV();
-
-    // 计算旋转 和平移矩阵 R  和 t,  R= V *M* UT
-    double det = (U * V.transpose()).determinant();
-    Eigen::Matrix3d M;
-    M << 1, 0, 0, 0, 1, 0, 0, 0, det;
-
-    Eigen::Matrix3d R_ = V * M * (U.transpose());
-
-    // t =  p' - R * p
-    Eigen::Vector3d t_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - Eigen::Vector3d(p1.x(), p1.y(), p1.z());
-
-    return std::tuple(R_, t_);
-
-}
-
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     initilize_glog(argv);
@@ -95,8 +51,13 @@ int main(int argc, char **argv) {
 
     //计算RT
     Pos_rec pos_rec;
-    pos_rec.calculate_rotation(path_cpt);
+    Vector3d transation;
+    Matrix3d rotation;
+    std::tuple(rotation,transation)= pos_rec.calculate_rotation(path_cpt);
     
+    std::cout << transation << std::endl;
+
+
 
     Pos pos;
     pos.load_pos(path_pos);
@@ -192,42 +153,15 @@ int main(int argc, char **argv) {
     Eigen::Vector3d t(x_sum / cpt_r.size(), y_sum / cpt_r.size(), z_sum / cpt_r.size());
 
 
+    
+    HsrFile file(path_input);
+    file.set_config(path_config);
+    file.set_body(path_config);
 
-
-
-
-
-
-
-
-
-    if (path_pano.empty()) {
-        HsrFile file(path_input);
-        file.set_config(path_config);
-        file.set_body(path_config);
-
-        std::string name = get_filename_noext(path_input);
-        std::string dir = get_directory(path_input);
-        name = join_paths(dir, name + ".laz");
-        file.export_las_ooc(name, pos);
-    } else {
-        std::string pano_id = get_filename(path_pano);
-        std::string dir = path_pano;
-        std::string timestamp = join_paths(dir, pano_id + ".syn");
-
-        LadybugStreamPtr stream = std::make_shared<LadybugStream>(dir, pano_id, timestamp, pos);
-        stream->set_body(path_config);
-        stream->set_image_type(path_config);
-
-        HsrFile file(path_input);
-        file.set_body(path_config);
-        file.set_config(path_config);
-
-        std::string name = get_filename_noext(path_input);
-        dir = get_directory(path_input);
-        name = join_paths(dir, name + ".laz");
-        file.export_colored_las_ooc(name, pos, stream);
-    }
-
+    std::string name = get_filename_noext(path_input);
+    std::string dir = get_directory(path_input);
+    name = join_paths(dir, name + ".laz");
+    file.export_las_ooc(name, pos);
+   
     return 0;
 }
