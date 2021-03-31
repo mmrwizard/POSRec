@@ -10,6 +10,7 @@
 #include <mms/hsr_file.h>
 #include <mms/ladybug_stream.h>
 #include <mms/pos.h>
+#include <mms/pos_rectify.h>
 
 using namespace h2o;
 
@@ -51,7 +52,7 @@ std::tuple<Eigen::Matrix3d, Eigen::Vector3d>
     Eigen::Matrix3d R_ = V * M * (U.transpose());
 
     // t =  p' - R * p
-    Eigen::Vector3d t_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
+    Eigen::Vector3d t_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - Eigen::Vector3d(p1.x(), p1.y(), p1.z());
 
     return std::tuple(R_, t_);
 
@@ -73,7 +74,6 @@ int main(int argc, char **argv) {
     // clang-format off
     options.add_options("MMSConverter")
       ("i,input", "Input file path", cxxopts::value(path_input))
-      ("pano", "Directory of the panorama", cxxopts::value(path_pano))
       ("p,pos", "Path to pos file", cxxopts::value(path_pos))
       ("c,config", "Path to configuration file", cxxopts::value(path_config))
       ("control","control points file",cxxopts::value(path_cpt))
@@ -90,8 +90,13 @@ int main(int argc, char **argv) {
     path_input = QFileInfo(QString::fromLocal8Bit(path_input.c_str())).absoluteFilePath().toStdString();
     path_pos = QFileInfo(QString::fromLocal8Bit(path_pos.c_str())).absoluteFilePath().toStdString();
     path_config = QFileInfo(QString::fromLocal8Bit(path_config.c_str())).absoluteFilePath().toStdString();
-    path_pano = QFileInfo(QString::fromLocal8Bit(path_pano.c_str())).absoluteFilePath().toStdString();
     path_cpt = QFileInfo(QString::fromLocal8Bit(path_cpt.c_str())).absoluteFilePath().toStdString();
+
+
+    //计算RT
+    Pos_rec pos_rec;
+    pos_rec.calculate_rotation(path_cpt);
+    
 
     Pos pos;
     pos.load_pos(path_pos);
@@ -129,12 +134,52 @@ int main(int argc, char **argv) {
     //计算RT
     Eigen::Matrix3d R;
     Eigen::Vector3d T;
-    std::tuple(R,T)=calculateRT(cpt_o, cpt_r);
+    //std::tuple(R,T)=calculateRT(cpt_o, cpt_r);
+
+            //求中心点
+        Eigen::Vector3d p1, p2;
+
+        int N = cpt_o.size();
+        for (int i = 0; i < N; i++) {
+            p1 += cpt_o[i];
+            p2 += cpt_r[i];
+        }
+
+        p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
+        p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
+        // 得到去中心坐标
+        std::vector<Eigen::Vector3d> q1(N), q2(N);
+        for (int i = 0; i < N; i++) {
+            q1[i] = cpt_o[i] - p1;
+            q2[i] = cpt_r[i] - p2;
+        }
+
+        //计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
+        Eigen::Matrix3d W = Eigen::Matrix3d::Zero();
+        for (int i = 0; i < N; i++)
+            W += Eigen::Vector3d(q1[i].x(), q1[i].y(), q1[i].z()) *
+                 Eigen::Vector3d(q2[i].x(), q2[i].y(), q2[i].z()).transpose();
+
+        //对  W 进行SVD 奇异值分解
+        Eigen::JacobiSVD<Eigen::Matrix3d> svd(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        Eigen::Matrix3d U = svd.matrixU();
+        Eigen::Matrix3d V = svd.matrixV();
+
+        // 计算旋转 和平移矩阵 R  和 t,  R= V *M* UT
+        double det = (U * V.transpose()).determinant();
+        Eigen::Matrix3d M;
+        M << 1, 0, 0, 0, 1, 0, 0, 0, det;
+
+        Eigen::Matrix3d R_ = V * M * (U.transpose());
+
+        // t =  p' - R * p
+        Eigen::Vector3d t_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) -R_* Eigen::Vector3d(p1.x(), p1.y(), p1.z());
+
 
     //计算POS
     Eigen::Vector3d pos_o(438061.025, 3402682.112, 429.882);
     Eigen::Vector3d pos_r(438062.16, 3402682.767, 432.125);
-    auto chk = pos_r - T - R * pos_o;
+    auto chk = pos_r - t_ - R_ * pos_o;
     std::cout << chk.x() << "  " << chk.y() << "  " << chk.z() << std::endl;
         
     double x_sum = 0, y_sum = 0, z_sum = 0;
@@ -145,6 +190,15 @@ int main(int argc, char **argv) {
         z_sum += cpt_r[i](2);
     }
     Eigen::Vector3d t(x_sum / cpt_r.size(), y_sum / cpt_r.size(), z_sum / cpt_r.size());
+
+
+
+
+
+
+
+
+
 
 
     if (path_pano.empty()) {
