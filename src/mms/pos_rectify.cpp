@@ -15,7 +15,7 @@ namespace h2o {
         return true;
     }
     };
-    
+    /*
     void Pos_rec::test_ceres() { 
         google::InitGoogleLogging("");
 
@@ -29,9 +29,8 @@ namespace h2o {
 
         
 
-    }
-
-    std::tuple<Matrix3d, Vector3d> Pos_rec::calculate_rotation(const std::string path_control_pts) {
+    }*/
+    std::tuple<Matrix3d, Vector3d> Pos_rec::calculate_rotation(const std::string &path_control_pts) {
         std::vector<double> gps_time;
         std::vector<double> x_pointcloud;
         std::vector<double> y_pointcloud;
@@ -91,7 +90,7 @@ namespace h2o {
 
     p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
     p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
-    std::cout << p2 << std::endl;
+    //std::cout << p2 << std::endl;
     // 得到去中心坐标
     std::vector<Eigen::Vector3d> q1(N), q2(N);
     for (int i = 0; i < N; i++) {
@@ -115,15 +114,15 @@ namespace h2o {
     Eigen::Matrix3d M;
     M << 1, 0, 0, 0, 1, 0, 0, 0, det;
 
-    Eigen::Matrix3d R_ = V * M * (U.transpose());
-
+    Matrix3d R_ = V * M * (U.transpose());
+    
     // t =  p' - R * p
-    Eigen::Vector3d t_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
+    Vector3d T_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
 
     //计算POS
-    Eigen::Vector3d pos_o(360044.47000000, 3435633.75500000, 927.17100000);
-    Eigen::Vector3d pos_r(360044.27100000, 3435633.74300000, 927.80000000);
-    auto chk = pos_r - t_ - R_ * pos_o;
+    Eigen::Vector3d pos_o(358078.98600000, 3437848.65000000, 948.28400000);
+    Eigen::Vector3d pos_r(358079.31700000, 3437848.26600000, 945.92100000);
+    auto chk = pos_r - T_ - R_ * pos_o;
     std::cout << chk.x() << "  " << chk.y() << "  " << chk.z() << std::endl;
 
     double x_sum = 0, y_sum = 0, z_sum = 0;
@@ -134,6 +133,12 @@ namespace h2o {
     }
     Eigen::Vector3d t(x_sum / control_measure.size(), y_sum / control_measure.size(), z_sum / control_measure.size());
 
-    return std::make_tuple(R_, t_);
+    return std::make_tuple(R_, T_);
     }
-}
+
+    Vector2d Pos_rec::get_tunnel_time() {
+
+        return Vector2d::Zero();
+
+    }
+    }
