@@ -55,10 +55,10 @@ int main(int argc, char **argv) {
     pos.load_pos(path_pos);
     std::tuple(rotation, translation) = pos.calculate_rotation(path_cpt);
 
+
     VectorXd gpstimes;
     gpstimes = pos.get_gpstime();
-
-    
+        
     HsrFile file(path_input);
     file.set_config(path_config);
     file.set_body(path_config);

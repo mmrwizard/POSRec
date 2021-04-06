@@ -92,6 +92,7 @@ void Pos::load_pos(const std::string &path) {
     positions_.resize(nframes);
     quaternions_.resize(nframes);
     velocities_.resize(nframes);
+    qualitys_.resize(nframes);
 
     for (int i = 0; i < nframes; ++i) {
         gpstime[i] -= gpstime_offset_.x();
@@ -217,6 +218,19 @@ std::tuple<Matrix3d, Vector3d> Pos::calculate_rotation(const std::string &path_c
 
     return std::make_tuple(R_, T_);
 }
+
+Vector2d Pos::get_tunnel_period(const std::string &path) { 
+    std::vector<Vector2d> tunnnel_periods;
+    Vector2d tunnel_period;
+    int q = 1;
+    for (int i=0;i<qualitys_.size();i++)
+    {
+        if (qualitys_[i] > 1)
+        {
+            tunnel_period.x() = gpstimes_[i];
+        }
+    }
+     }
 
 std::tuple<Vector3d, Matrix3d> Pos::getd(double gpstime) const {
     int i0, i1;

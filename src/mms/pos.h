@@ -30,6 +30,8 @@ public:
     std::vector<Vector3d> get_positions();
     std::vector<int> get_quality();
     std::tuple<Matrix3d, Vector3d> calculate_rotation(const std::string &path_control_pts);
+    Vector2d get_tunnel_period(const std::string &path);
+    void export_pos(const std::string &path);
 
 public:
     static Matrix3d ypr_to_rotation(double yaw, double pitch, double roll);
@@ -47,7 +49,7 @@ protected:
     std::vector<Vector3d> positions_;
     std::vector<Vector3d> velocities_;
     std::vector<Quaterniond> quaternions_;
-    std::vector<int> qualitys;
+    std::vector<int> qualitys_;
 
     std::string proj_;
 };
