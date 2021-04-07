@@ -30,7 +30,7 @@ public:
     std::vector<Vector3d> get_positions();
     std::vector<int> get_quality();
     std::tuple<Matrix3d, Vector3d> calculate_rotation(const std::string &path_control_pts);
-    Vector2d get_tunnel_period(const std::string &path);
+    std::vector<Vector2d> get_tunnel_period();
     void export_pos(const std::string &path);
 
 public:

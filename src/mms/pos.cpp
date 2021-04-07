@@ -111,6 +111,7 @@ void Pos::load_pos(const std::string &path) {
         quaternions_[i] = R;
 
         velocities_[i] = Vector3d(vx[i], vy[i], vz[i]);
+        qualitys_[i] = q[i];
     }
 }
 
@@ -219,18 +220,25 @@ std::tuple<Matrix3d, Vector3d> Pos::calculate_rotation(const std::string &path_c
     return std::make_tuple(R_, T_);
 }
 
-Vector2d Pos::get_tunnel_period(const std::string &path) { 
+std::vector<Vector2d> Pos::get_tunnel_period() { 
     std::vector<Vector2d> tunnnel_periods;
-    Vector2d tunnel_period;
-    int q = 1;
-    for (int i=0;i<qualitys_.size();i++)
-    {
-        if (qualitys_[i] > 1)
+    Vector2d tunnel_period, kt;
+    std::vector<Vector2d> kts;
+    double k;
+    for (int i = 110500; i < qualitys_.size() - 5; i++) {
+        if (qualitys_[i]==1)
         {
-            tunnel_period.x() = gpstimes_[i];
+            k = (qualitys_[i + 1] - qualitys_[i - 1]) / 2.0 + (qualitys_[i + 3] - qualitys_[i - 3]) / 2.0;
+            if (std::abs(k - 1.0) < 0.0001) {
+                kt.x() = gpstimes_[i];
+                kt.y() = i;
+                kts.push_back(kt);
         }
+        }        
     }
-     }
+    std::cout << kts.size();
+    return kts;
+}
 
 std::tuple<Vector3d, Matrix3d> Pos::getd(double gpstime) const {
     int i0, i1;
@@ -279,13 +287,13 @@ double Pos::get_speed(double gpstime) const { return get_velocity(gpstime).norm(
 
 VectorXd Pos::get_gpstime() { 
     VectorXd gpstimes;
-    for (int i=0;i<gpstimes_.size();i++) {
+    for (int i = 0; i < gpstimes_.size(); i++) {
         gpstimes[i] = gpstimes_[i] + gpstime_offset_.x();
     }
     return gpstimes; }
 
 std::vector<Vector3d> Pos::get_positions() { return positions_; }
-std::vector<int> Pos::get_quality() { return qualitys; }
+std::vector<int> Pos::get_quality() { return qualitys_; }
 
 BoundingBox3d Pos::get_bounds() const {
     BoundingBox3d bounds;
