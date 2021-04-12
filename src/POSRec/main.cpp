@@ -47,19 +47,20 @@ int main(int argc, char **argv) {
     path_config = QFileInfo(QString::fromLocal8Bit(path_config.c_str())).absoluteFilePath().toStdString();
     path_cpt = QFileInfo(QString::fromLocal8Bit(path_cpt.c_str())).absoluteFilePath().toStdString();
 
-    //计算RT
+    //计算新POS文件的位姿
+    Pos pos;
+    pos.read_controls(path_cpt);
+
     Vector3d translation;
     Matrix3d rotation;
-
-    Pos pos;
     pos.load_pos(path_pos);
-    std::tuple(rotation, translation) = pos.calculate_rotation(path_cpt);
+    pos.calculate_rotation(path_cpt);
 
     VectorXd gpstimes;
     //gpstimes = pos.get_gpstime();
 
-    std::vector<Vector2d> tunnel_period = pos.get_tunnel_period();
-        
+    //保存为新POS文件
+
     HsrFile file(path_input);
     file.set_config(path_config);
     file.set_body(path_config);

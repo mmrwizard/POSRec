@@ -23,7 +23,6 @@ void Pos::load_pos(const std::string &path) {
     std::vector<double> vx;
     std::vector<double> vy;
     std::vector<double> vz;
-    std::vector<int> q;
 
     if (get_extension_name(path) == ".csv") {
         rapidcsv::Document doc;
@@ -71,7 +70,13 @@ void Pos::load_pos(const std::string &path) {
             vx.push_back(std::stod(chunks[7]));
             vy.push_back(std::stod(chunks[8]));
             vz.push_back(std::stod(chunks[9]));
-            q.push_back(std::stod(chunks[16]));
+            sd_e_.push_back(std::stod(chunks[10]));
+            sd_n_.push_back(std::stod(chunks[11]));
+            sd_h_.push_back(std::stod(chunks[12]));
+            sd_hd_.push_back(std::stod(chunks[13]));
+            sd_p_.push_back(std::stod(chunks[14]));
+            sd_r_.push_back(std::stod(chunks[15]));
+            q_.push_back(std::stod(chunks[16]));
         }
     }
 
@@ -92,7 +97,6 @@ void Pos::load_pos(const std::string &path) {
     positions_.resize(nframes);
     quaternions_.resize(nframes);
     velocities_.resize(nframes);
-    qualitys_.resize(nframes);
 
     for (int i = 0; i < nframes; ++i) {
         gpstime[i] -= gpstime_offset_.x();
@@ -111,11 +115,10 @@ void Pos::load_pos(const std::string &path) {
         quaternions_[i] = R;
 
         velocities_[i] = Vector3d(vx[i], vy[i], vz[i]);
-        qualitys_[i] = q[i];
     }
 }
 
-std::tuple<Matrix3d, Vector3d> Pos::calculate_rotation(const std::string &path_control_pts) {
+void Pos::read_controls(const std::string& path_control_pts) {
     std::vector<double> gps_time;
     std::vector<double> x_pointcloud;
     std::vector<double> y_pointcloud;
@@ -151,73 +154,101 @@ std::tuple<Matrix3d, Vector3d> Pos::calculate_rotation(const std::string &path_c
         y_measure.push_back(std::stod(chunks[5]));
         z_measure.push_back(std::stod(chunks[6]));
     }
+    std::vector<VectorXd> controls;
+    VectorXd control;
+    control.resize(7);
+    int nframes = gps_time.size();
+    for (int i = 0; i < nframes; i++) {
+        int count = 0;
+        while (gps_time[i + 1] - gps_time[i] < 3 && i < nframes) {
+            count++, i++;
+        }
+        if (count > 2 && i < nframes) {
+            for (int j = 0; j <= count; j++) {
+                control[0] = gps_time[i - count + j];
+                control[1] = x_pointcloud[i - count + j];
+                control[2] = y_pointcloud[i - count + j];
+                control[3] = z_pointcloud[i - count + j];
+                control[4] = x_measure[i - count + j];
+                control[5] = y_measure[i - count + j];
+                control[6] = z_measure[i - count + j];
+                controls.push_back(control);
+            }
+            control_points_sets.push_back(controls);
+            controls.clear();       
+        }
+    }
+}
 
-    std::vector<Vector3d> control_pointcloud;
-    std::vector<Vector3d> control_measure;
-    int ncontrol = gps_time.size();
-    control_pointcloud.resize(ncontrol);
-    control_measure.resize(ncontrol);
+void Pos::calculate_rotation(const std::string &path_control_pts) {
+    int nsets = control_points_sets.size();
+    rotation_quaternions.resize(nsets);
+    for (int i = 0; i < nsets; i++) {
+        std::vector<Vector3d> control_pointclouds;
+        std::vector<Vector3d> control_surveys;
+        Vector3d p1, p2, controlpoint, surveypoint;
+        p1 = p2 = Vector3d::Zero();
+        int N = control_points_sets[i].size();
+        for (int j = 0; j < N; j++) {
+            controlpoint.x() = control_points_sets[i][j][1];
+            controlpoint.y() = control_points_sets[i][j][2];
+            controlpoint.z() = control_points_sets[i][j][3];
+            surveypoint.x() = control_points_sets[i][j][4];
+            surveypoint.y() = control_points_sets[i][j][5];
+            surveypoint.z() = control_points_sets[i][j][6];
+            control_pointclouds.push_back(controlpoint);
+            control_surveys.push_back(surveypoint);
+        }
+        for (int j = 0; j < N; j++) {
+            p1 += control_pointclouds[j];
+            p2 += control_surveys[j];
+        }
+        p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
+        p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
+        // std::cout << p2 << std::endl;
+        // 得到去中心坐标
+        std::vector<Eigen::Vector3d> q1(N), q2(N);
+        for (int j = 0; j < N; j++) {
+            q1[j] = control_pointclouds[j] - p1;
+            q2[j] = control_surveys[j] - p2;
+        }
 
-    for (int i = 0; i < ncontrol; i++) {
-        control_pointcloud[i] = Vector3d{x_pointcloud[i], y_pointcloud[i], z_pointcloud[i]};
-        control_measure[i] = Vector3d{x_measure[i], y_measure[i], z_measure[i]};
+        //计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
+        Eigen::Matrix3d W = Eigen::Matrix3d::Zero();
+        for (int i = 0; i < N; i++)
+            W += Eigen::Vector3d(q1[i].x(), q1[i].y(), q1[i].z()) *
+                 Eigen::Vector3d(q2[i].x(), q2[i].y(), q2[i].z()).transpose();
+
+        //对  W 进行SVD 奇异值分解
+        Eigen::JacobiSVD<Eigen::Matrix3d> svd(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        Eigen::Matrix3d U = svd.matrixU();
+        Eigen::Matrix3d V = svd.matrixV();
+
+        // 计算旋转 和平移矩阵 R  和 t,  R= V *M* UT
+        double det = (U * V.transpose()).determinant();
+        Eigen::Matrix3d M;
+        M << 1, 0, 0, 0, 1, 0, 0, 0, det;
+
+        Matrix3d R_ = V * M * (U.transpose());
+
+        // t =  p' - R * p
+        Vector3d T_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
+
+        rotations.push_back(R_);
+        translations.push_back(T_);
+
+        rotation_quaternions[i] = R_;
+
+        /*Vector3d pos_o(357219.71700000, 3438362.30800000, 926.49500000),
+            pos_r(357220.23300000, 3438361.53600000, 925.14200000);
+        auto checks = pos_r - T_ - R_ * pos_o;
+        std::cout << control_points_sets[i][0][0] << std::endl;
+        std::cout << checks << std::endl; */
     }
 
-    Vector3d p1, p2;
-    p1 = p2 = Vector3d::Zero();
 
-    int N = control_pointcloud.size();
-    for (int i = 0; i < N; i++) {
-        p1 += control_pointcloud[i];
-        p2 += control_measure[i];
-    }
 
-    p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
-    p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
-    // std::cout << p2 << std::endl;
-    // 得到去中心坐标
-    std::vector<Eigen::Vector3d> q1(N), q2(N);
-    for (int i = 0; i < N; i++) {
-        q1[i] = control_pointcloud[i] - p1;
-        q2[i] = control_measure[i] - p2;
-    }
 
-    //计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
-    Eigen::Matrix3d W = Eigen::Matrix3d::Zero();
-    for (int i = 0; i < N; i++)
-        W += Eigen::Vector3d(q1[i].x(), q1[i].y(), q1[i].z()) *
-             Eigen::Vector3d(q2[i].x(), q2[i].y(), q2[i].z()).transpose();
-
-    //对  W 进行SVD 奇异值分解
-    Eigen::JacobiSVD<Eigen::Matrix3d> svd(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    Eigen::Matrix3d U = svd.matrixU();
-    Eigen::Matrix3d V = svd.matrixV();
-
-    // 计算旋转 和平移矩阵 R  和 t,  R= V *M* UT
-    double det = (U * V.transpose()).determinant();
-    Eigen::Matrix3d M;
-    M << 1, 0, 0, 0, 1, 0, 0, 0, det;
-
-    Matrix3d R_ = V * M * (U.transpose());
-
-    // t =  p' - R * p
-    Vector3d T_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
-
-    //计算POS
-    Eigen::Vector3d pos_o(358078.98600000, 3437848.65000000, 948.28400000);
-    Eigen::Vector3d pos_r(358079.31700000, 3437848.26600000, 945.92100000);
-    auto chk = pos_r - T_ - R_ * pos_o;
-    std::cout << chk.x() << "  " << chk.y() << "  " << chk.z() << std::endl;
-
-    double x_sum = 0, y_sum = 0, z_sum = 0;
-    for (int i = 0; i < control_measure.size(); i++) {
-        x_sum += control_measure[i](0);
-        y_sum += control_measure[i](1);
-        z_sum += control_measure[i](2);
-    }
-    Eigen::Vector3d t(x_sum / control_measure.size(), y_sum / control_measure.size(), z_sum / control_measure.size());
-
-    return std::make_tuple(R_, T_);
 }
 
 std::vector<Vector2d> Pos::get_tunnel_period() { 
@@ -225,12 +256,12 @@ std::vector<Vector2d> Pos::get_tunnel_period() {
     Vector2d tunnel_period, kt;
     std::vector<Vector2d> kts;
     double k;
-    for (int i = 110500; i < qualitys_.size() - 5; i++) {
-        if (qualitys_[i]==1)
+    for (int i = 5; i < q_.size() - 5; i++) {
+        if (q_[i] == 4)
         {
-            k = (qualitys_[i + 1] - qualitys_[i - 1]) / 2.0 + (qualitys_[i + 3] - qualitys_[i - 3]) / 2.0;
+            k = (q_[i + 1] - q_[i - 1]) / 2.0 + (q_[i + 3] - q_[i - 3]) / 2.0;
             if (std::abs(k - 1.0) < 0.0001) {
-                kt.x() = gpstimes_[i];
+                kt.x() = gpstimes_[i] + gpstime_offset_.x();
                 kt.y() = i;
                 kts.push_back(kt);
         }
@@ -293,7 +324,6 @@ VectorXd Pos::get_gpstime() {
     return gpstimes; }
 
 std::vector<Vector3d> Pos::get_positions() { return positions_; }
-std::vector<int> Pos::get_quality() { return qualitys_; }
 
 BoundingBox3d Pos::get_bounds() const {
     BoundingBox3d bounds;

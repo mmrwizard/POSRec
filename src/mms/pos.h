@@ -29,9 +29,10 @@ public:
     VectorXd get_gpstime();
     std::vector<Vector3d> get_positions();
     std::vector<int> get_quality();
-    std::tuple<Matrix3d, Vector3d> calculate_rotation(const std::string &path_control_pts);
+    void calculate_rotation(const std::string &path_control_pts);
     std::vector<Vector2d> get_tunnel_period();
     void export_pos(const std::string &path);
+    void read_controls(const std::string &path_control_pts);
 
 public:
     static Matrix3d ypr_to_rotation(double yaw, double pitch, double roll);
@@ -49,9 +50,28 @@ protected:
     std::vector<Vector3d> positions_;
     std::vector<Vector3d> velocities_;
     std::vector<Quaterniond> quaternions_;
-    std::vector<int> qualitys_;
 
     std::string proj_;
+
+    std::vector<double> sd_n_;
+    std::vector<double> sd_e_;
+    std::vector<double> sd_h_;
+    std::vector<double> sd_hd_;
+    std::vector<double> sd_p_;
+    std::vector<double> sd_r_;
+    std::vector<int> q_;
+
+    std::vector<std::vector<VectorXd>> control_points_sets;
+    std::vector<Matrix3d> rotations;
+    std::vector<Vector3d> translations;
+    std::vector<Quaterniond> rotation_quaternions;
+
+    std::vector<double> x_pointcloud_;
+    std::vector<double> y_pointcloud_;
+    std::vector<double> z_pointcloud_;
+    std::vector<double> x_measure_;
+    std::vector<double> y_measure_;
+    std::vector<double> z_measure_;
 };
 
 } // namespace h2o
