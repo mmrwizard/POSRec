@@ -72,6 +72,17 @@ protected:
     std::vector<double> x_measure_;
     std::vector<double> y_measure_;
     std::vector<double> z_measure_;
+
+    std::vector<double> utctime_;
+    std::vector<double> x_;
+    std::vector<double> y_;
+    std::vector<double> z_;
+    std::vector<double> yaw_;
+    std::vector<double> pitch_;
+    std::vector<double> roll_;
+    std::vector<double> vx_;
+    std::vector<double> vy_;
+    std::vector<double> vz_;
 };
 
 } // namespace h2o

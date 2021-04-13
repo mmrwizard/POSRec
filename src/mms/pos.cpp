@@ -60,16 +60,16 @@ void Pos::load_pos(const std::string &path) {
                 continue;
             }
 
-            gpstime.push_back(std::stod(chunks[0]));
-            x.push_back(std::stod(chunks[1]));
-            y.push_back(std::stod(chunks[2]));
-            z.push_back(std::stod(chunks[3]));
-            yaw.push_back(std::stod(chunks[4]));
-            pitch.push_back(std::stod(chunks[5]));
-            roll.push_back(std::stod(chunks[6]));
-            vx.push_back(std::stod(chunks[7]));
-            vy.push_back(std::stod(chunks[8]));
-            vz.push_back(std::stod(chunks[9]));
+            utctime_.push_back(std::stod(chunks[0]));
+            x_.push_back(std::stod(chunks[1]));
+            y_.push_back(std::stod(chunks[2]));
+            z_.push_back(std::stod(chunks[3]));
+            yaw_.push_back(std::stod(chunks[4]));
+            pitch_.push_back(std::stod(chunks[5]));
+            roll_.push_back(std::stod(chunks[6]));
+            vx_.push_back(std::stod(chunks[7]));
+            vy_.push_back(std::stod(chunks[8]));
+            vz_.push_back(std::stod(chunks[9]));
             sd_e_.push_back(std::stod(chunks[10]));
             sd_n_.push_back(std::stod(chunks[11]));
             sd_h_.push_back(std::stod(chunks[12]));
@@ -183,6 +183,8 @@ void Pos::read_controls(const std::string& path_control_pts) {
 void Pos::calculate_rotation(const std::string &path_control_pts) {
     int nsets = control_points_sets.size();
     rotation_quaternions.resize(nsets);
+    Vector2d tunnel_period = Vector2d(DBL_MAX, -DBL_MAX);
+   
     for (int i = 0; i < nsets; i++) {
         std::vector<Vector3d> control_pointclouds;
         std::vector<Vector3d> control_surveys;
@@ -190,6 +192,8 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         p1 = p2 = Vector3d::Zero();
         int N = control_points_sets[i].size();
         for (int j = 0; j < N; j++) {
+            tunnel_period.x() = std::min(tunnel_period.x(), control_points_sets[i][j][0]);
+            tunnel_period.y() = std::min(tunnel_period.y(), control_points_sets[i][j][0]);
             controlpoint.x() = control_points_sets[i][j][1];
             controlpoint.y() = control_points_sets[i][j][2];
             controlpoint.z() = control_points_sets[i][j][3];
@@ -205,7 +209,6 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         }
         p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
         p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
-        // std::cout << p2 << std::endl;
         // 得到去中心坐标
         std::vector<Eigen::Vector3d> q1(N), q2(N);
         for (int j = 0; j < N; j++) {
@@ -245,9 +248,37 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         std::cout << control_points_sets[i][0][0] << std::endl;
         std::cout << checks << std::endl; */
     }
+    
 
+    //得到纠正后每一帧的POS位姿
+    std::vector<Vector3d> xyz_new, rpy_new;
+    std::vector<double> controls_times;
+    for (int i=0;i<control_points_sets.size();i++) {
+        int n = std::floor((control_points_sets[i][0][0]) / 86400);
+        controls_times.push_back(control_points_sets[i][0][0] - n * 86400);
+    }
 
+    std::vector<VectorXd> pos_news;
+    VectorXd pos_new;
+    Vector3d xyz, rpy;
+    pos_new.resize(7);    
+    int index_pos, index_conrol;
+    std::vector<Vector2d> index_pos_controls;
+    Vector2d index_pos_control;
+    for (int i=0;i<gpstimes_.size();i++)  {
+        for (int j=0;j<nsets;j++) {
+            if (std::abs(gpstimes_[i] - controls_times[j]) < 0.5) {
+                index_pos_control.x() = i;
+                index_pos_control.y() = j;
+                xyz = rotation[j] * Vector3D()
 
+                continue;
+            }
+        }
+    }
+    std::cout << controls_times[0] << std::endl;
+
+    //默认采样间隔为0.5s
 
 }
 
