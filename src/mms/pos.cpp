@@ -60,6 +60,17 @@ void Pos::load_pos(const std::string &path) {
                 continue;
             }
 
+            gpstime.push_back(std::stod(chunks[0]));
+            x.push_back(std::stod(chunks[1]));
+            y.push_back(std::stod(chunks[2]));
+            z.push_back(std::stod(chunks[3]));
+            yaw.push_back(std::stod(chunks[4]));
+            pitch.push_back(std::stod(chunks[5]));
+            roll.push_back(std::stod(chunks[6]));
+            vx.push_back(std::stod(chunks[7]));
+            vy.push_back(std::stod(chunks[8]));
+            vz.push_back(std::stod(chunks[9]));
+
             utctimes_.push_back(std::stod(chunks[0]));
             x_.push_back(std::stod(chunks[1]));
             y_.push_back(std::stod(chunks[2]));
@@ -69,14 +80,14 @@ void Pos::load_pos(const std::string &path) {
             roll_.push_back(std::stod(chunks[6]));
             vx_.push_back(std::stod(chunks[7]));
             vy_.push_back(std::stod(chunks[8]));
-            vz_.push_back(std::stod(chunks[9]));
+            vz_.push_back(std::stod(chunks[9]));/*
             sd_e_.push_back(std::stod(chunks[10]));
             sd_n_.push_back(std::stod(chunks[11]));
             sd_h_.push_back(std::stod(chunks[12]));
             sd_hd_.push_back(std::stod(chunks[13]));
             sd_p_.push_back(std::stod(chunks[14]));
             sd_r_.push_back(std::stod(chunks[15]));
-            q_.push_back(std::stod(chunks[16]));
+            q_.push_back(std::stod(chunks[16]));*/
         }
     }
 
@@ -285,7 +296,7 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         }
     }
     std::cout << pos_news.size() << std::endl;
-    //默认采样间隔为0.5s
+    //默认采样间隔为0.05s
     std::vector<std::vector<std::vector<double>>> verify_all;
     std::vector<std::vector<double>> verify_per;
     std::vector<double> verify_i;
@@ -302,9 +313,46 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
             verify_i.clear();
         }
         verify_all.push_back(verify_per);
-        verify_per.clear();
+        //verify_per.clear();
     }
-
+    std::cout << verify_per.size() << std::endl;
+    std::string path_out="rec1.pos";
+    std::ofstream ofile;
+    ofile.open(path_out);
+   
+    for (int i=0;i<utctimes_.size();i++) {
+        if (std::abs(utctimes_[i] - verify_per[0][0]) < 0.01 /*||
+            std::abs(utctimes_[i] - verify_per[verify_per.size() - 1][0]) < 0.01*/) {
+            for (int j = 0; j < verify_per.size(); j++) {
+                i++;
+                ofile << std::to_string(verify_per[j][0]) << "   ";
+                ofile << std::to_string(x_[i] + verify_per[j][1]) << "   ";
+                ofile << std::to_string(y_[i] + verify_per[j][2]) << "   ";
+                ofile << std::to_string(z_[i] + verify_per[j][3]) << "   ";
+                ofile << std::to_string(yaw_[i]) << "   ";
+                ofile << std::to_string(pitch_[i]) << "   ";
+                ofile << std::to_string(roll_[i]) << "   ";
+                ofile << std::to_string(vx_[i]) << "   ";
+                ofile << std::to_string(vy_[i]) << "   ";
+                ofile << std::to_string(vz_[i]) << "   ";
+                ofile << "\n";
+            }
+        } else {
+            ofile << std::to_string(utctimes_[i]) << "   ";
+            ofile << std::to_string(x_[i]) << "   ";
+            ofile << std::to_string(y_[i]) << "   ";
+            ofile << std::to_string(z_[i]) << "   ";
+            ofile << std::to_string(yaw_[i]) << "   ";
+            ofile << std::to_string(pitch_[i]) << "   ";
+            ofile << std::to_string(roll_[i]) << "   ";
+            ofile << std::to_string(vx_[i]) << "   ";
+            ofile << std::to_string(vy_[i]) << "   ";
+            ofile << std::to_string(vz_[i]) << "   ";
+            ofile << "\n";
+        }
+        
+    }
+    ofile.close();
 
 }
 
