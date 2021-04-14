@@ -60,7 +60,7 @@ void Pos::load_pos(const std::string &path) {
                 continue;
             }
 
-            utctime_.push_back(std::stod(chunks[0]));
+            utctimes_.push_back(std::stod(chunks[0]));
             x_.push_back(std::stod(chunks[1]));
             y_.push_back(std::stod(chunks[2]));
             z_.push_back(std::stod(chunks[3]));
@@ -254,31 +254,60 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
     std::vector<Vector3d> xyz_new, rpy_new;
     std::vector<double> controls_times;
     for (int i=0;i<control_points_sets.size();i++) {
-        int n = std::floor((control_points_sets[i][0][0]) / 86400);
-        controls_times.push_back(control_points_sets[i][0][0] - n * 86400);
+        int n = std::floor((control_points_sets[i][0][0]) / _day_seconds);
+        controls_times.push_back(control_points_sets[i][0][0] - n * _day_seconds);
     }
 
-    std::vector<VectorXd> pos_news;
-    VectorXd pos_new;
+    std::vector<std::vector<double>> pos_news;
+    std::vector<double> pos_new;
     Vector3d xyz, rpy;
     pos_new.resize(7);    
-    int index_pos, index_conrol;
+    
     std::vector<Vector2d> index_pos_controls;
     Vector2d index_pos_control;
-    for (int i=0;i<gpstimes_.size();i++)  {
+    for (int i=0;i<utctimes_.size();i++)  {
         for (int j=0;j<nsets;j++) {
-            if (std::abs(gpstimes_[i] - controls_times[j]) < 0.5) {
+            if (std::abs(utctimes_[i] - controls_times[j]) < _pos_interval / 2.0) {
                 index_pos_control.x() = i;
                 index_pos_control.y() = j;
-                xyz = rotation[j] * Vector3D()
-
-                continue;
+                xyz = rotations[j] * Vector3d(x_[i], y_[i], z_[i]) + translations[j];
+                rpy = Pos::rotation_to_ypr(rotations[i]);
+                pos_new[0] = controls_times[j];
+                pos_new[1] = xyz.x();
+                pos_new[2] = xyz.y();
+                pos_new[3] = xyz.z();
+                pos_new[4] = rpy.x();
+                pos_new[5] = rpy.y();
+                pos_new[6] = rpy.z();
+                pos_news.push_back(pos_new);
+                pos_new.clear();
             }
         }
     }
-    std::cout << controls_times[0] << std::endl;
-
+    std::cout << pos_news.size() << std::endl;
     //默认采样间隔为0.5s
+    std::vector<std::vector<double>> verify_i;
+    std::vector<std::vector<VectorXd>> verifys;
+    for (int i=0;i<nsets-1;i++){
+        double controls_interval = pos_news[i + 1][0] - pos_news[i][0];
+        int n_pos = int(controls_interval/_pos_interval);
+        verify_i.resize(n_pos); 
+        for (int j=0;j<n_pos;j++) {
+            if (j<=n_pos/2) {
+                verify_i[i][0] = pos_news[i][0] + j * _pos_interval;
+                verify_i[i][1] = (pos_news[i][1] + pos_news[i + 1][1]) / 2 * (j / n_pos);
+                verify_i[i][2] = (pos_news[i][2] + pos_news[i + 1][2]) / 2 * (j / n_pos);
+                verify_i[i][3] = (pos_news[i][3] + pos_news[i + 1][3]) / 2 * (j / n_pos);
+            } else {
+                verify_i[i][0] = pos_news[i][0] + j * _pos_interval;
+                verify_i[i][1] = (pos_news[i][1] + pos_news[i + 1][1]) / 2 * (1 - j / n_pos);
+                verify_i[i][2] = (pos_news[i][2] + pos_news[i + 1][2]) / 2 * (1 - j / n_pos);
+                verify_i[i][3] = (pos_news[i][3] + pos_news[i + 1][3]) / 2 * (1 - j / n_pos);
+            }
+        }
+    }
+    std::cout << verify_i.size() << std::endl;
+
 
 }
 
