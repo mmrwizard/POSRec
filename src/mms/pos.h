@@ -84,9 +84,9 @@ protected:
     std::vector<double> vy_;
     std::vector<double> vz_;
 
-    const double _pos_interval = 0.5;
-    const double _utc_offset = 18.0;
-    const double _day_seconds = 86400.0;
+    double _pos_interval = 0.05;
+    double _utc_offset = 18.0;
+    double _day_seconds = 86400.0;
 };
 
 } // namespace h2o

@@ -260,22 +260,22 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
 
     std::vector<std::vector<double>> pos_news;
     std::vector<double> pos_new;
-    Vector3d xyz, rpy;
-    pos_new.resize(7);    
+    Vector3d xyz, rpy;   
     
     std::vector<Vector2d> index_pos_controls;
     Vector2d index_pos_control;
-    for (int i=0;i<utctimes_.size();i++)  {
+    for (int i = 0; i < utctimes_.size(); i++) {
         for (int j=0;j<nsets;j++) {
             if (std::abs(utctimes_[i] - controls_times[j]) < _pos_interval / 2.0) {
                 index_pos_control.x() = i;
                 index_pos_control.y() = j;
                 xyz = rotations[j] * Vector3d(x_[i], y_[i], z_[i]) + translations[j];
                 rpy = Pos::rotation_to_ypr(rotations[i]);
-                pos_new[0] = controls_times[j];
-                pos_new[1] = xyz.x();
-                pos_new[2] = xyz.y();
-                pos_new[3] = xyz.z();
+                pos_new.resize(7); 
+                pos_new[0] = utctimes_[i];
+                pos_new[1] = xyz.x()-x_[i];
+                pos_new[2] = xyz.y()-y_[i];
+                pos_new[3] = xyz.z()-z_[i];
                 pos_new[4] = rpy.x();
                 pos_new[5] = rpy.y();
                 pos_new[6] = rpy.z();
@@ -286,27 +286,24 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
     }
     std::cout << pos_news.size() << std::endl;
     //默认采样间隔为0.5s
-    std::vector<std::vector<double>> verify_i;
-    std::vector<std::vector<VectorXd>> verifys;
-    for (int i=0;i<nsets-1;i++){
+    std::vector<std::vector<std::vector<double>>> verify_all;
+    std::vector<std::vector<double>> verify_per;
+    std::vector<double> verify_i;
+    for (int i = 0; i < nsets - 1; i++) {
         double controls_interval = pos_news[i + 1][0] - pos_news[i][0];
         int n_pos = int(controls_interval/_pos_interval);
-        verify_i.resize(n_pos); 
-        for (int j=0;j<n_pos;j++) {
-            if (j<=n_pos/2) {
-                verify_i[i][0] = pos_news[i][0] + j * _pos_interval;
-                verify_i[i][1] = (pos_news[i][1] + pos_news[i + 1][1]) / 2 * (j / n_pos);
-                verify_i[i][2] = (pos_news[i][2] + pos_news[i + 1][2]) / 2 * (j / n_pos);
-                verify_i[i][3] = (pos_news[i][3] + pos_news[i + 1][3]) / 2 * (j / n_pos);
-            } else {
-                verify_i[i][0] = pos_news[i][0] + j * _pos_interval;
-                verify_i[i][1] = (pos_news[i][1] + pos_news[i + 1][1]) / 2 * (1 - j / n_pos);
-                verify_i[i][2] = (pos_news[i][2] + pos_news[i + 1][2]) / 2 * (1 - j / n_pos);
-                verify_i[i][3] = (pos_news[i][3] + pos_news[i + 1][3]) / 2 * (1 - j / n_pos);
-            }
+        for (int j = 0; j < n_pos; j++) {
+            verify_i.resize(4);
+            verify_i[0] = pos_news[i][0] + j * _pos_interval;
+            verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
+            verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
+            verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
+            verify_per.push_back(verify_i);
+            verify_i.clear();
         }
+        verify_all.push_back(verify_per);
+        verify_per.clear();
     }
-    std::cout << verify_i.size() << std::endl;
 
 
 }
