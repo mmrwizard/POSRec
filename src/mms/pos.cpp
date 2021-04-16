@@ -252,12 +252,6 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         translations.push_back(T_);
 
         rotation_quaternions[i] = R_;
-
-        /*Vector3d pos_o(357219.71700000, 3438362.30800000, 926.49500000),
-            pos_r(357220.23300000, 3438361.53600000, 925.14200000);
-        auto checks = pos_r - T_ - R_ * pos_o;
-        std::cout << control_points_sets[i][0][0] << std::endl;
-        std::cout << checks << std::endl; */
     }
     
 
@@ -276,12 +270,12 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
     std::vector<Vector2d> index_pos_controls;
     Vector2d index_pos_control;
     for (int i = 0; i < utctimes_.size(); i++) {
-        for (int j=0;j<nsets;j++) {
+        for (int j = 0; j < nsets; j++) {
             if (std::abs(utctimes_[i] - controls_times[j]) < _pos_interval / 2.0) {
                 index_pos_control.x() = i;
                 index_pos_control.y() = j;
                 xyz = rotations[j] * Vector3d(x_[i], y_[i], z_[i]) + translations[j];
-                rpy = Pos::rotation_to_ypr(rotations[i]);
+                rpy = Pos::rotation_to_ypr(rotations[j]);
                 pos_new.resize(7); 
                 pos_new[0] = utctimes_[i];
                 pos_new[1] = xyz.x()-x_[i];
@@ -309,6 +303,7 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
             verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
             verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
             verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
+            std::cout << verify_i[3] << std::endl;
             verify_per.push_back(verify_i);
             verify_i.clear();
         }
