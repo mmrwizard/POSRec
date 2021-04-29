@@ -253,7 +253,25 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
 
         rotation_quaternions[i] = R_;
     }
-    
+    //check
+    //{
+    //    for (int i = 0; i < rotations.size(); i++) {
+    //        auto checks =
+    //            Vector3d(control_points_sets[i][0][4], control_points_sets[i][0][5], control_points_sets[i][0][6]) -
+    //            translations[i] -
+    //            rotations[i] *
+    //                Vector3d(control_points_sets[i][0][1], control_points_sets[i][0][2], control_points_sets[i][0][3]);
+
+    //        /*std::cout << Vector3d(control_points_sets[i][0][1], control_points_sets[i][0][2],
+    //        control_points_sets[i][0][3])
+    //                  << std::endl;
+    //        std::cout << Vector3d(control_points_sets[i][0][4], control_points_sets[i][0][5],
+    //        control_points_sets[i][0][6])
+    //                  << std::endl;*/
+    //        std::cout << checks << std::endl;
+    //    }
+    //}
+    //
 
     //得到纠正后每一帧的POS位姿
     std::vector<Vector3d> xyz_new, rpy_new;
@@ -272,9 +290,26 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
     for (int i = 0; i < utctimes_.size(); i++) {
         for (int j = 0; j < nsets; j++) {
             if (std::abs(utctimes_[i] - controls_times[j]) < _pos_interval / 2.0) {
+                
                 index_pos_control.x() = i;
                 index_pos_control.y() = j;
                 xyz = rotations[j] * Vector3d(x_[i], y_[i], z_[i]) + translations[j];
+                /*{
+                    std::cout << i << std::endl;
+                    std::cout << utctimes_[i] + 518400.0 << std::endl;
+                    std::cout << j << std::endl;
+                    std::cout << xyz << std::endl;
+                    auto checks = Vector3d(control_points_sets[j][0][4], control_points_sets[j][0][5],
+                                           control_points_sets[j][0][6]) -
+                                  translations[j] -
+                                  rotations[j] * Vector3d(control_points_sets[j][0][1], control_points_sets[j][0][2],
+                                                          control_points_sets[j][0][3]);
+
+                    std::cout << checks << std::endl;
+                    std::cout << xyz.x() - x_[i] << std::endl;
+                    std::cout << xyz.y() - y_[i] << std::endl;
+                    std::cout << xyz.z() - z_[i] << std::endl;
+                }*/
                 rpy = Pos::rotation_to_ypr(rotations[j]);
                 pos_new.resize(7); 
                 pos_new[0] = utctimes_[i];
@@ -294,24 +329,41 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
     std::vector<std::vector<std::vector<double>>> verify_all;
     std::vector<std::vector<double>> verify_per;
     std::vector<double> verify_i;
+    std::vector<Quaterniond> verify_ryp;
+    int num=0;
     for (int i = 0; i < nsets - 1; i++) {
         double controls_interval = pos_news[i + 1][0] - pos_news[i][0];
         int n_pos = int(controls_interval/_pos_interval);
+
         for (int j = 0; j < n_pos; j++) {
-            verify_i.resize(4);
+            verify_i.resize(7);
             verify_i[0] = pos_news[i][0] + j * _pos_interval;
             verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
             verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
             verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
-            std::cout << verify_i[3] << std::endl;
+           double u = (n_pos - j) / double(n_pos);
+            Matrix3d rotation_u;
+            rotation_u = rotation_quaternions[i].slerp(u, rotation_quaternions[i + 1]);
+           auto verify_rpy = Pos::rotation_to_ypr(rotation_u);
+            verify_i[4] = verify_rpy[0];
+           verify_i[5] = verify_rpy[1];
+            verify_i[6] = verify_rpy[2];
+           std::cout << verify_i[4] << std::endl;
             verify_per.push_back(verify_i);
             verify_i.clear();
         }
+        std::cout << pos_news[i][1] << std::endl;
+        std::cout << pos_news[i+1][1] << std::endl;
+
+        std::cout << verify_per[num][1] << std::endl;
+        std::cout << verify_per[verify_per.size() - 1][1] << std::endl;
+        std::cout << verify_per.size() << std::endl;
         verify_all.push_back(verify_per);
+        num = verify_per.size();
         //verify_per.clear();
     }
     std::cout << verify_per.size() << std::endl;
-    std::string path_out="rec1.pos";
+    std::string path_out="rec-new.pos";
     std::ofstream ofile;
     ofile.open(path_out);
    
@@ -324,9 +376,9 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
                 ofile << std::to_string(x_[i] + verify_per[j][1]) << "   ";
                 ofile << std::to_string(y_[i] + verify_per[j][2]) << "   ";
                 ofile << std::to_string(z_[i] + verify_per[j][3]) << "   ";
-                ofile << std::to_string(yaw_[i]) << "   ";
-                ofile << std::to_string(pitch_[i]) << "   ";
-                ofile << std::to_string(roll_[i]) << "   ";
+                ofile << std::to_string(yaw_[i] + verify_per[j][4]) << "   ";
+                ofile << std::to_string(pitch_[i] + verify_per[j][5]) << "   ";
+                ofile << std::to_string(roll_[i] + verify_per[j][6]) << "   ";
                 ofile << std::to_string(vx_[i]) << "   ";
                 ofile << std::to_string(vy_[i]) << "   ";
                 ofile << std::to_string(vz_[i]) << "   ";

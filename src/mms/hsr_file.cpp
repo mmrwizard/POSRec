@@ -219,7 +219,6 @@ void HsrFile::export_las_ooc(const string &path, const Pos &pos) const {
 
     BoundingBox3d bounds = pos.get_bounds();
     Vector3d offset = pos.get_position_offset();
-
     laszip_POINTER writer = create_lasfile_header(path, offset, bounds);
     laszip_point *laspoint;
     if (laszip_get_point_pointer(writer, &laspoint)) {
