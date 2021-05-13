@@ -80,18 +80,12 @@ void Pos::load_pos(const std::string &path) {
             roll_.push_back(std::stod(chunks[6]));
             vx_.push_back(std::stod(chunks[7]));
             vy_.push_back(std::stod(chunks[8]));
-            vz_.push_back(std::stod(chunks[9]));/*
-            sd_e_.push_back(std::stod(chunks[10]));
-            sd_n_.push_back(std::stod(chunks[11]));
-            sd_h_.push_back(std::stod(chunks[12]));
-            sd_hd_.push_back(std::stod(chunks[13]));
-            sd_p_.push_back(std::stod(chunks[14]));
-            sd_r_.push_back(std::stod(chunks[15]));
-            q_.push_back(std::stod(chunks[16]));*/
+            vz_.push_back(std::stod(chunks[9]));
         }
     }
 
     int nframes = gpstime.size();
+    _pos_interval = gpstime[1] - gpstime[0];
     gpstime_offset_ = Vector2d(DBL_MAX, -DBL_MAX);
     position_offset_ = Vector3d::Constant(DBL_MAX);
 
@@ -129,7 +123,77 @@ void Pos::load_pos(const std::string &path) {
     }
 }
 
-void Pos::read_controls(const std::string& path_control_pts) {
+//void Pos::read_controls(const std::string& path_control_pts) {
+//    std::vector<double> gps_time;
+//    std::vector<double> x_pointcloud;
+//    std::vector<double> y_pointcloud;
+//    std::vector<double> z_pointcloud;
+//    std::vector<double> x_measure;
+//    std::vector<double> y_measure;
+//    std::vector<double> z_measure;
+//
+//
+//    std::ifstream cpt_file(string_utf8_to_fstream(path_control_pts));
+//    std::string line;
+//    while (std::getline(cpt_file, line) && cpt_file.good()) {
+//        string_left_trim(&line);
+//        string_right_trim(&line);
+//
+//        auto new_end =
+//            std::unique(begin(line), end(line), [](char lhs, char rhs) { return (lhs == rhs) && (lhs == ' '); });
+//        line.erase(new_end, end(line));
+//        std::vector<std::string> chunks = string_split(line, " ");
+//        if (chunks.empty()) {
+//            continue;
+//        }
+//        // 判断第一个点是不是数字
+//        try {
+//            double first_value = std::stod(chunks.front());
+//        } catch (const std::exception &) {
+//            continue;
+//        }
+//        gps_time.push_back(std::stod(chunks[0]));
+//        x_pointcloud.push_back(std::stod(chunks[1]));
+//        y_pointcloud.push_back(std::stod(chunks[2]));
+//        z_pointcloud.push_back(std::stod(chunks[3]));
+//        x_measure.push_back(std::stod(chunks[4]));
+//        y_measure.push_back(std::stod(chunks[5]));
+//        z_measure.push_back(std::stod(chunks[6]));
+//    }
+//    std::vector<VectorXd> controls;
+//    VectorXd control;
+//    control.resize(7);
+//    int nframes = gps_time.size();
+//    for (int i = 0; i < nframes; i++) {
+//        int count = 0;
+//        while (gps_time[i + 1] - gps_time[i] < 3 && i < nframes) {
+//            count++, i++;
+//        }
+//        if (count > 2 && i < nframes) {
+//            for (int j = 0; j <= count; j++) {
+//                control[0] = gps_time[i - count + j];
+//                control[1] = x_pointcloud[i - count + j];
+//                control[2] = y_pointcloud[i - count + j];
+//                control[3] = z_pointcloud[i - count + j];
+//                control[4] = x_measure[i - count + j];
+//                control[5] = y_measure[i - count + j];
+//                control[6] = z_measure[i - count + j];
+//                controls.push_back(control);
+//            }
+//            control_points_sets.push_back(controls);
+//            controls.clear();       
+//        }
+//    }
+//}
+
+void Pos::export_rectified_pos(const std::string &path_control_pts, const std::string &rectified_pos_path) {
+
+    std::vector<std::vector<VectorXd>> control_points_sets;
+    std::vector<Matrix3d> rotations;
+    std::vector<Vector3d> translations;
+    std::vector<Quaterniond> rotation_quaternions;
+
+    /*读取控制点*/
     std::vector<double> gps_time;
     std::vector<double> x_pointcloud;
     std::vector<double> y_pointcloud;
@@ -174,28 +238,41 @@ void Pos::read_controls(const std::string& path_control_pts) {
         while (gps_time[i + 1] - gps_time[i] < 3 && i < nframes) {
             count++, i++;
         }
-        if (count > 2 && i < nframes) {
+        if (count > 2 && i <= nframes) {
             for (int j = 0; j <= count; j++) {
-                control[0] = gps_time[i - count + j];
-                control[1] = x_pointcloud[i - count + j];
-                control[2] = y_pointcloud[i - count + j];
-                control[3] = z_pointcloud[i - count + j];
-                control[4] = x_measure[i - count + j];
-                control[5] = y_measure[i - count + j];
-                control[6] = z_measure[i - count + j];
-                controls.push_back(control);
+                int index = i - count + j;
+                if (index < nframes) {
+                    control[0] = gps_time[index];
+                    control[1] = x_pointcloud[index];
+                    control[2] = y_pointcloud[index];
+                    control[3] = z_pointcloud[index];
+                    control[4] = x_measure[index];
+                    control[5] = y_measure[index];
+                    control[6] = z_measure[index];
+                    controls.push_back(control);
+                }
             }
             control_points_sets.push_back(controls);
-            controls.clear();       
+            controls.clear();
         }
     }
-}
 
-void Pos::calculate_rotation(const std::string &path_control_pts) {
+    /*更新POS*/
     int nsets = control_points_sets.size();
-    rotation_quaternions.resize(nsets);
+    rotations.resize(nsets + 2);
+    translations.resize(nsets + 2);
+    rotation_quaternions.resize(nsets+2);
     Vector2d tunnel_period = Vector2d(DBL_MAX, -DBL_MAX);
    
+    //计算旋转平移参数
+    rotations[0] = Matrix3d::Identity();
+    rotations[nsets+1] = Matrix3d::Identity();
+    rotation_quaternions[0] = rotations[0];
+    rotation_quaternions[nsets+1] = rotations[nsets+1];
+    translations[0] = Vector3d::Zero();
+    translations[nsets+1] = Vector3d::Zero();
+
+
     for (int i = 0; i < nsets; i++) {
         std::vector<Vector3d> control_pointclouds;
         std::vector<Vector3d> control_surveys;
@@ -220,96 +297,60 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         }
         p1 = Eigen::Vector3d(Eigen::Vector3d(p1) / N);
         p2 = Eigen::Vector3d(Eigen::Vector3d(p2) / N);
-        // 得到去中心坐标
         std::vector<Eigen::Vector3d> q1(N), q2(N);
         for (int j = 0; j < N; j++) {
             q1[j] = control_pointclouds[j] - p1;
             q2[j] = control_surveys[j] - p2;
         }
-
         //计算需要进行奇异值分解的 W = sum(qi * qi’转置) compute q1*q2^T
         Eigen::Matrix3d W = Eigen::Matrix3d::Zero();
         for (int i = 0; i < N; i++)
             W += Eigen::Vector3d(q1[i].x(), q1[i].y(), q1[i].z()) *
                  Eigen::Vector3d(q2[i].x(), q2[i].y(), q2[i].z()).transpose();
-
         //对  W 进行SVD 奇异值分解
         Eigen::JacobiSVD<Eigen::Matrix3d> svd(W, Eigen::ComputeFullU | Eigen::ComputeFullV);
         Eigen::Matrix3d U = svd.matrixU();
         Eigen::Matrix3d V = svd.matrixV();
-
         // 计算旋转 和平移矩阵 R  和 t,  R= V *M* UT
         double det = (U * V.transpose()).determinant();
         Eigen::Matrix3d M;
         M << 1, 0, 0, 0, 1, 0, 0, 0, det;
-
         Matrix3d R_ = V * M * (U.transpose());
-
         // t =  p' - R * p
         Vector3d T_ = Eigen::Vector3d(p2.x(), p2.y(), p2.z()) - R_ * Eigen::Vector3d(p1.x(), p1.y(), p1.z());
 
-        rotations.push_back(R_);
-        translations.push_back(T_);
+        rotations[i + 1] = R_;
+        translations[i+1]=T_;
+        rotation_quaternions[i+1] = R_;
+    }       
 
-        rotation_quaternions[i] = R_;
-    }
-    //check
-    //{
-    //    for (int i = 0; i < rotations.size(); i++) {
-    //        auto checks =
-    //            Vector3d(control_points_sets[i][0][4], control_points_sets[i][0][5], control_points_sets[i][0][6]) -
-    //            translations[i] -
-    //            rotations[i] *
-    //                Vector3d(control_points_sets[i][0][1], control_points_sets[i][0][2], control_points_sets[i][0][3]);
-
-    //        /*std::cout << Vector3d(control_points_sets[i][0][1], control_points_sets[i][0][2],
-    //        control_points_sets[i][0][3])
-    //                  << std::endl;
-    //        std::cout << Vector3d(control_points_sets[i][0][4], control_points_sets[i][0][5],
-    //        control_points_sets[i][0][6])
-    //                  << std::endl;*/
-    //        std::cout << checks << std::endl;
-    //    }
-    //}
-    //
-
-    //得到纠正后每一帧的POS位姿
-    std::vector<Vector3d> xyz_new, rpy_new;
+    //UTC系统下控制点时间
     std::vector<double> controls_times;
-    for (int i=0;i<control_points_sets.size();i++) {
+    controls_times.resize(nsets + 2);
+    Vector2d control_min_max = Vector2d(DBL_MAX, -DBL_MAX);
+    for (int i = 0; i < control_points_sets.size(); i++) {
         int n = std::floor((control_points_sets[i][0][0]) / _day_seconds);
-        controls_times.push_back(control_points_sets[i][0][0] - n * _day_seconds);
+        controls_times[i + 1] = (control_points_sets[i][0][0] - n * _day_seconds);
+        control_min_max.x() = std::min(control_min_max.x(), controls_times[i + 1]);
+        control_min_max.y() = std::max(control_min_max.y(), controls_times[i + 1]);
     }
+    //进出隧道前后10s处也视作控制点
+    controls_times[0] = control_min_max.x() - 10;
+    controls_times[nsets+1] = control_min_max.y() + 10;
+    
 
+    //根据控制点时间定位POS中需要纠正的位置
     std::vector<std::vector<double>> pos_news;
     std::vector<double> pos_new;
-    Vector3d xyz, rpy;   
-    
+    Vector3d xyz, rpy;       
     std::vector<Vector2d> index_pos_controls;
     Vector2d index_pos_control;
     for (int i = 0; i < utctimes_.size(); i++) {
-        for (int j = 0; j < nsets; j++) {
-            if (std::abs(utctimes_[i] - controls_times[j]) < _pos_interval / 2.0) {
-                
+        for (int j = 0; j < nsets+2; j++) {
+            if (std::abs(utctimes_[i] - controls_times[j]) < _pos_interval / 2.0) {                
                 index_pos_control.x() = i;
                 index_pos_control.y() = j;
-                xyz = rotations[j] * Vector3d(x_[i], y_[i], z_[i]) + translations[j];
-                /*{
-                    std::cout << i << std::endl;
-                    std::cout << utctimes_[i] + 518400.0 << std::endl;
-                    std::cout << j << std::endl;
-                    std::cout << xyz << std::endl;
-                    auto checks = Vector3d(control_points_sets[j][0][4], control_points_sets[j][0][5],
-                                           control_points_sets[j][0][6]) -
-                                  translations[j] -
-                                  rotations[j] * Vector3d(control_points_sets[j][0][1], control_points_sets[j][0][2],
-                                                          control_points_sets[j][0][3]);
-
-                    std::cout << checks << std::endl;
-                    std::cout << xyz.x() - x_[i] << std::endl;
-                    std::cout << xyz.y() - y_[i] << std::endl;
-                    std::cout << xyz.z() - z_[i] << std::endl;
-                }*/
+                xyz = rotations[j] * Vector3d(x_[i], y_[i], z_[i]) + translations[j];                
                 rpy = Pos::rotation_to_ypr(rotations[j]);
                 pos_new.resize(7); 
                 pos_new[0] = utctimes_[i];
@@ -325,60 +366,55 @@ void Pos::calculate_rotation(const std::string &path_control_pts) {
         }
     }
     std::cout << pos_news.size() << std::endl;
-    //默认采样间隔为0.05s
+
+    //线性内插的方式根据控制点内插得到pos改正数
     std::vector<std::vector<std::vector<double>>> verify_all;
-    std::vector<std::vector<double>> verify_per;
+    std::vector<std::vector<double>> verifys;
     std::vector<double> verify_i;
     std::vector<Quaterniond> verify_ryp;
     int num=0;
-    for (int i = 0; i < nsets - 1; i++) {
+
+    for (int i = 0; i < nsets + 1; i++) {
         double controls_interval = pos_news[i + 1][0] - pos_news[i][0];
         int n_pos = int(controls_interval/_pos_interval);
-
         for (int j = 0; j < n_pos; j++) {
-            verify_i.resize(7);
+            verify_i.resize(4);
             verify_i[0] = pos_news[i][0] + j * _pos_interval;
             verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
             verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
             verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
-           double u = (n_pos - j) / double(n_pos);
+           /* double u = (n_pos - j) / double(n_pos);
+            std::cout << u << std::endl;
             Matrix3d rotation_u;
-            rotation_u = rotation_quaternions[i].slerp(u, rotation_quaternions[i + 1]);
-           auto verify_rpy = Pos::rotation_to_ypr(rotation_u);
-            verify_i[4] = verify_rpy[0];
-           verify_i[5] = verify_rpy[1];
-            verify_i[6] = verify_rpy[2];
-           std::cout << verify_i[4] << std::endl;
-            verify_per.push_back(verify_i);
+            rotation_u = rotation_quaternions[i].slerp(1-u, rotation_quaternions[i + 1]);
+            auto verify_rpy = Pos::rotation_to_ypr(rotation_u);
+            verify_i[4] = verify_rpy[0] * 180 / 3.1415;
+            verify_i[5] = verify_rpy[1] * 180 / 3.1415;
+            verify_i[6] = verify_rpy[2] * 180 / 3.1415;
+            std::cout << verify_i[4] << std::endl;
+            std::cout << verify_i[5] << std::endl;
+            std::cout << verify_i[6] << std::endl;*/
+            verifys.push_back(verify_i);
             verify_i.clear();
         }
-        std::cout << pos_news[i][1] << std::endl;
-        std::cout << pos_news[i+1][1] << std::endl;
-
-        std::cout << verify_per[num][1] << std::endl;
-        std::cout << verify_per[verify_per.size() - 1][1] << std::endl;
-        std::cout << verify_per.size() << std::endl;
-        verify_all.push_back(verify_per);
-        num = verify_per.size();
-        //verify_per.clear();
     }
-    std::cout << verify_per.size() << std::endl;
+    std::cout << verifys.size() << std::endl;
+
+    //输出纠正后POS文件
     std::string path_out="rec-new.pos";
     std::ofstream ofile;
-    ofile.open(path_out);
-   
+    ofile.open(path_out);   
     for (int i=0;i<utctimes_.size();i++) {
-        if (std::abs(utctimes_[i] - verify_per[0][0]) < 0.01 /*||
-            std::abs(utctimes_[i] - verify_per[verify_per.size() - 1][0]) < 0.01*/) {
-            for (int j = 0; j < verify_per.size(); j++) {
+        if (std::abs(utctimes_[i] - verifys[0][0]) < _pos_interval/2.0 ) {
+            for (int j = 0; j < verifys.size(); j++) {
                 i++;
-                ofile << std::to_string(verify_per[j][0]) << "   ";
-                ofile << std::to_string(x_[i] + verify_per[j][1]) << "   ";
-                ofile << std::to_string(y_[i] + verify_per[j][2]) << "   ";
-                ofile << std::to_string(z_[i] + verify_per[j][3]) << "   ";
-                ofile << std::to_string(yaw_[i] + verify_per[j][4]) << "   ";
-                ofile << std::to_string(pitch_[i] + verify_per[j][5]) << "   ";
-                ofile << std::to_string(roll_[i] + verify_per[j][6]) << "   ";
+                ofile << std::to_string(verifys[j][0]) << "   ";
+                ofile << std::to_string(x_[i] + verifys[j][1]) << "   ";
+                ofile << std::to_string(y_[i] + verifys[j][2]) << "   ";
+                ofile << std::to_string(z_[i] + verifys[j][3]) << "   ";
+                ofile << std::to_string(yaw_[i]) << "   ";
+                ofile << std::to_string(pitch_[i]) << "   ";
+                ofile << std::to_string(roll_[i]) << "   ";
                 ofile << std::to_string(vx_[i]) << "   ";
                 ofile << std::to_string(vy_[i]) << "   ";
                 ofile << std::to_string(vz_[i]) << "   ";

@@ -28,10 +28,8 @@ public:
 
     VectorXd get_gpstime();
     std::vector<Vector3d> get_positions();
-    std::vector<int> get_quality();
-    void calculate_rotation(const std::string &path_control_pts);
+    void export_rectified_pos(const std::string &path_control_pts, const std::string &rectified_pos_path);
     std::vector<Vector2d> get_tunnel_period();
-    void export_pos(const std::string &path);
     void read_controls(const std::string &path_control_pts);
 
 public:
@@ -61,10 +59,7 @@ protected:
     std::vector<double> sd_r_;
     std::vector<int> q_;
 
-    std::vector<std::vector<VectorXd>> control_points_sets;
-    std::vector<Matrix3d> rotations;
-    std::vector<Vector3d> translations;
-    std::vector<Quaterniond> rotation_quaternions;
+  
 
     std::vector<double> x_pointcloud_;
     std::vector<double> y_pointcloud_;
@@ -84,7 +79,7 @@ protected:
     std::vector<double> vy_;
     std::vector<double> vz_;
 
-    double _pos_interval = 0.05;
+    double _pos_interval;
     double _utc_offset = 18.0;
     double _day_seconds = 86400.0;
 };
