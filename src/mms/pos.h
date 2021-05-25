@@ -30,7 +30,6 @@ public:
     std::vector<Vector3d> get_positions();
     void export_rectified_pos(const std::string &path_control_pts, const std::string &rectified_pos_path);
     std::vector<Vector2d> get_tunnel_period();
-    void read_controls(const std::string &path_control_pts);
 
 public:
     static Matrix3d ypr_to_rotation(double yaw, double pitch, double roll);
@@ -58,8 +57,6 @@ protected:
     std::vector<double> sd_p_;
     std::vector<double> sd_r_;
     std::vector<int> q_;
-
-  
 
     std::vector<double> x_pointcloud_;
     std::vector<double> y_pointcloud_;

@@ -272,7 +272,6 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     translations[0] = Vector3d::Zero();
     translations[nsets+1] = Vector3d::Zero();
 
-
     for (int i = 0; i < nsets; i++) {
         std::vector<Vector3d> control_pointclouds;
         std::vector<Vector3d> control_surveys;
@@ -336,8 +335,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     }
     //进出隧道前后10s处也视作控制点
     controls_times[0] = control_min_max.x() - 10;
-    controls_times[nsets+1] = control_min_max.y() + 10;
-    
+    controls_times[nsets+1] = control_min_max.y() + 10;    
 
     //根据控制点时间定位POS中需要纠正的位置
     std::vector<std::vector<double>> pos_news;
@@ -383,8 +381,9 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
             verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
             verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
-           /* double u = (n_pos - j) / double(n_pos);
-            std::cout << u << std::endl;
+            //POS中姿态角每个时刻观测值互相独立，加入姿态角改正效果不明显，且受标靶计算的旋转参数精度限制
+           /*{
+           double u = (n_pos - j) / double(n_pos);
             Matrix3d rotation_u;
             rotation_u = rotation_quaternions[i].slerp(1-u, rotation_quaternions[i + 1]);
             auto verify_rpy = Pos::rotation_to_ypr(rotation_u);
@@ -393,7 +392,8 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             verify_i[6] = verify_rpy[2] * 180 / 3.1415;
             std::cout << verify_i[4] << std::endl;
             std::cout << verify_i[5] << std::endl;
-            std::cout << verify_i[6] << std::endl;*/
+            std::cout << verify_i[6] << std::endl;
+            }*/
             verifys.push_back(verify_i);
             verify_i.clear();
         }
@@ -403,7 +403,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     //输出纠正后POS文件
     std::string path_out="rec-new.pos";
     std::ofstream ofile;
-    ofile.open(path_out);   
+    ofile.open(rectified_pos_path);   
     for (int i=0;i<utctimes_.size();i++) {
         if (std::abs(utctimes_[i] - verifys[0][0]) < _pos_interval/2.0 ) {
             for (int j = 0; j < verifys.size(); j++) {
