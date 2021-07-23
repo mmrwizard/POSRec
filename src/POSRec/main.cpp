@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     QApplication app(argc, argv);
     initilize_glog(argv);
 
-    cxxopts::Options options("MMSConverter");
+    cxxopts::Options options("MMSRectify");
 
     std::string path_input;
     std::string mode;
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     std::string path_output;
 
     // clang-format off
-    options.add_options("MMSConverter")
+    options.add_options("MMSRectify")
       ("i,input", "Input file path", cxxopts::value(path_input))
       ("p,pos", "Path to pos file", cxxopts::value(path_pos))
       ("c,config", "Path to configuration file", cxxopts::value(path_config))
@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     auto arguments = options.parse(argc, argv);
 
     if (arguments.count("help") || arguments.count("i") == 0) {
-        std::cout << options.help({"MMSConverter"}) << std::endl;
+        std::cout << options.help({"MMSRectify"}) << std::endl;
         return 1;
     }
 
@@ -52,10 +52,7 @@ int main(int argc, char **argv) {
 
     //计算新POS文件的位姿
     Pos pos, pos_rec;
-    
 
-    Vector3d translation;
-    Matrix3d rotation;
     pos.load_pos(path_pos);
 
     //保存为新POS文件

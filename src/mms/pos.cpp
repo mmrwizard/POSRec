@@ -194,6 +194,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     std::vector<Quaterniond> rotation_quaternions;
 
     /*读取控制点*/
+    std::cout << "read control points ..." << std::endl;
     std::vector<double> gps_time;
     std::vector<double> x_pointcloud;
     std::vector<double> y_pointcloud;
@@ -258,6 +259,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     }
 
     /*更新POS*/
+    std::cout << "rectify the POS ..." << std::endl;
     int nsets = control_points_sets.size();
     rotations.resize(nsets + 2);
     translations.resize(nsets + 2);
@@ -363,8 +365,6 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             }
         }
     }
-    std::cout << pos_news.size() << std::endl;
-
     //线性内插的方式根据控制点内插得到pos改正数
     std::vector<std::vector<std::vector<double>>> verify_all;
     std::vector<std::vector<double>> verifys;
@@ -398,9 +398,8 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             verify_i.clear();
         }
     }
-    std::cout << verifys.size() << std::endl;
-
     //输出纠正后POS文件
+    std::cout << "export pos file ..." << std::endl;
     std::string path_out="rec-new.pos";
     std::ofstream ofile;
     ofile.open(rectified_pos_path);   
@@ -436,6 +435,8 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
         
     }
     ofile.close();
+    std::cout << "export laz file by recfied ..." << std::endl;
+
 
 }
 

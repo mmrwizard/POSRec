@@ -150,6 +150,11 @@ find_package(OpenMP REQUIRED)
 # pdalcpp pdal_util
 find_package(PDAL REQUIRED)
 
+#PCL
+find_package(PCL  REQUIRED)
+
+include_directories(${PCL_INCLUDE_DIRS})
+
 include_directories(${EIGEN3_INCLUDE_DIR}
                     ${CMAKE_CURRENT_LIST_DIR}/depends
                     ${CMAKE_CURRENT_SOURCE_DIR}/src

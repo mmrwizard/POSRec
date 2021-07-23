@@ -32,7 +32,7 @@ int main() {
     std::vector<double> x_measure;
     std::vector<double> y_measure;
     std::vector<double> z_measure;
-    std::string path_pairs = "D:\\2020-MMS-Rec\\data\\lsm\\pairs.txt";
+    std::string path_pairs = "F:\\hdsy\\controls-half.txt";
 
     std::ifstream cpt_file(string_utf8_to_fstream(path_pairs));
     std::string line;
@@ -130,9 +130,9 @@ int main() {
     std::cout << R_ << std::endl;
     std::cout << T_ << std::endl;
 
-    Vector3d p11(0,0,0),p22();
+    Vector3d p11(359046.057, 3435941.898, 906.9648), p22(358905.4414, 3436015.216, 908.296021);
     auto checkp = R_ * Vector3d(p11.x(),p11.y(),p11.z()) - Vector3d(p11.x(),p11.y(),p11.z());
-
+    std::cout << checkp << std::endl;
     return 0;
 }
 

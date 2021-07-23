@@ -26,6 +26,17 @@ LiDARMatcherProxy::LiDARMatcherProxy(const std::string &path_las_i, const std::s
     pos_i_ = Pos(path_pos_i);
     pos_j_ = Pos(path_pos_j);
 }
+
+LiDARMatcherProxy::LiDARMatcherProxy(const std::string &path_las_i) {
+    Vector3d offset;
+    {
+        LasHeader header = pc_read_header(path_las_i);
+        offset = header.offset;
+    }
+    LOG(INFO) << "Loading...";
+    pcd_data_i_ = read_las(path_las_i, offset);
+}
+
 LiDARMatches LiDARMatcherProxy::match() {
     LOG(INFO) << "Downsampling...";
     pcd_data_i_ = downsample_voxel(pcd_data_i_);

@@ -32,6 +32,7 @@ class LiDARMatcherProxy {
 public:
     LiDARMatcherProxy(const std::string &path_las_i, const std::string &path_las_j, const std::string &path_pos_i,
                       const std::string &path_pos_j);
+    LiDARMatcherProxy(const std::string &path_las);
 
 public:
     void set_param(const LiDARMatchParam &param) { param_ = param; }
