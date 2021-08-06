@@ -1,75 +1,345 @@
 #include <cxxopts.hpp>
 
-//#include <QApplication>
-#include <base/base.h>
-#include <base/common.h>
-#include <laszip/laszip_api.h>
-#include <mms/lidar_matcher.h>
-#include <mms/lidar_matcher_proxy.h>
+#include <QApplication>
+#include <QSurfaceFormat>
 
-//using namespace h2o;
+#include <base/base.h>
+#include <mms/ladybug_stream.h>
+#include <mms/lidar_render.h>
+#include <mms/hsr_file.h>
+#include <iomanip>
+#include <iostream>
+#include <fstream>
+//#include "readlas.h"
+
+#include <mms/pos.h>
+
+using namespace h2o;
+
 
 int main(int argc, char **argv) {
-    //QApplication app(argc, argv);
-    h2o::initilize_glog(argv);
-
-    cxxopts::Options options("MMSGetCPs");
-
-    std::string path_input;
-    std::string time_interval;
-    std::string path_output;
-
-    // clang-format off
-    options.add_options("MMSGetCPs")
-      ("i,input", "Input laz file path", cxxopts::value(path_input))
-      ("t,time_interval", "get points coordinates during the interval", cxxopts::value(time_interval))
-      ("o,output_pos","rectified pos file",cxxopts::value(path_output))
-      ("h,help", "Print help message.");
-    // clang-format on
-
-    auto arguments = options.parse(argc, argv);
-
-    if (arguments.count("help") || arguments.count("i") == 0) {
-        std::cout << options.help({"MMSGetCPs"}) << std::endl;
-        return 1;
-    }
-
-    if (!time_interval.empty()) {
-        const char *s = time_interval.data();
+        QApplication app(argc, argv);
+        initilize_glog(argv);
+    
+        cxxopts::Options options("MMSGetCPs");
+    
+        std::string path_hsr;
+        std::string path_truth_las;
+        std::string path_warp_las;
+        std::string path_warp_pos;
+        std::string time_range;
+        std::string path_controls;
+        std::string path_checks;
+        std::string time_intervals;
+        std::string path_config;
+    
+        // clang-format off
+        options.add_options("MMSGetCPs")
+          ("hsr", "Input raw hsr file path", cxxopts::value(path_hsr))
+          ("t,truth_las_input", "Input truth laz file path", cxxopts::value(path_truth_las))
+          ("w,warp_las_input", "Input warped laz file path", cxxopts::value(path_warp_las))
+          ("p,warp_pos_input", "Input warped pos file path", cxxopts::value(path_warp_pos))
+          ("r,time_range", "get time range points coordinates during the interval", cxxopts::value(time_range))
+          ("c,output_controls","output control pairs file",cxxopts::value(path_controls))            
+          ("o,output_checks","check points file",cxxopts::value(path_checks))            
+          ("d,interval","interval time",cxxopts::value(time_intervals))
+          ("j,config","config json file",cxxopts::value(path_config))
+          ("h,help", "Print help message.");
+        // clang-format on
+    
+        auto arguments = options.parse(argc, argv);
+    
+        if (arguments.count("help") || arguments.count("t") == 0) {
+            std::cout << options.help({"MMSGetCPs"}) << std::endl;
+            return 1;
+        }
+    
+        Eigen::Vector2d time_duration;
         double time_begin, time_end;
-        std::scanf(s, "%f, %f", &time_begin, &time_end);
-    }
+        if (!time_range.empty()) {
+            const char *s = time_range.data();
+            std::sscanf(s, "%lf,%lf", &time_begin, &time_end);
+            time_duration << time_begin, time_end;
+        }
+        double time_interval;
+        if (!time_range.empty()) {
+            const char *s = time_intervals.data();
+            std::sscanf(s, "%lf", &time_interval);
+        }
+        const double t = time_interval;
+    
+        path_truth_las = QFileInfo(QString::fromLocal8Bit(path_truth_las.c_str())).absoluteFilePath().toStdString();
+        path_checks = QFileInfo(QString::fromLocal8Bit(path_checks.c_str())).absoluteFilePath().toStdString();
 
-    path_input = QFileInfo(QString::fromLocal8Bit(path_input.c_str())).absoluteFilePath().toStdString();
-    path_output = QFileInfo(QString::fromLocal8Bit(path_output.c_str())).absoluteFilePath().toStdString();
+        //1、提取真值点云中的控制点及检查点
+        std::cout << "extract truth laz controls and checks..." << std::endl;      
+        LiDARRender render;
+        render.load_las(path_truth_las);        
+        std::vector<std::vector<double>> controls_gcps;
+        std::vector<std::vector<double>> truth_checks;
+        {
+            int i = 0, cp_i = 15000, ck_i = 150000;
+            double control_t, check_t;
+            int num_points = render.gps_times_.size();
+            double time_range0 = time_duration.x(), time_range1 = time_duration.y();
+            double time_check = time_range0 + t / 2.0;
+            while (time_range0 < time_range1 && time_check < time_range1 && i < num_points) {
+                control_t =
+                    std::fabs(time_range0 - render.gps_times_[i]) - std::fabs(time_range0 - render.gps_times_[i + 1]);
+                check_t = std::fabs(time_check - render.gps_times_[i]) -
+                          std::fabs(time_check - render.gps_times_[i + 1]);
+                if (control_t < 0.0) {
+                    for (int j = 0; j < 6; j++) {
+                        std::vector<double> control_temp(5);
+                        if (std::fabs(render.gps_times_[i + j * cp_i] - render.gps_times_[i]) < 1.0) {
+                            //激光点频实际为20万点/秒，每组6个控制点保证在2秒范围内
+                            control_temp[0] = render.gps_times_[i + j * cp_i]; 
+                            control_temp[1] = render.points_[i + j * cp_i].x();
+                            control_temp[2] = render.points_[i + j * cp_i].y();
+                            control_temp[3] = render.points_[i + j * cp_i].z();
+                            control_temp[4] = render.intensitys_[i + j * cp_i];
+                            controls_gcps.push_back(control_temp);
+                        }
+                    }
+                    i++, time_range0 += t;
+                    continue;
+                } else if (check_t < 0.0) {
+                    for (int j = 0; j < 6; j++) {
+                        std::vector<double> check_temp(5);
+                        if (std::fabs(render.gps_times_[i + j * ck_i] - render.gps_times_[i]) < 5.0) {
+                            //每组检查点设置在5秒范围内
+                            check_temp[0] = render.gps_times_[i + j * ck_i];
+                            check_temp[1] = render.points_[i + j * ck_i].x();
+                            check_temp[2] = render.points_[i + j * ck_i].y();
+                            check_temp[3] = render.points_[i + j * ck_i].z();
+                            check_temp[4] = render.intensitys_[i + j * ck_i];
+                            truth_checks.push_back(check_temp);
+                        }
+                    }
+                    i++, time_check += t;
+                    continue;
+                }
+                else {
+                    i++;
+                }
+            }
+        }
 
-    //LiDARMatches matches;
-    //LiDARMatcherProxy matcher(path_input);
+        //2、提取失锁点云中对应的控制点及检查点
+        std::cout << "extract warp laz controls and checks..." << std::endl;
+        render.load_las(path_warp_las);
+        std::vector<std::vector<double>> controls_pcds;
+        std::vector<std::vector<double>> warp_checks;
+        {
+            int i = 0, cp_i = 15000, ck_i = 150000;
+            double control_t, check_t;
+            int num_points = render.gps_times_.size();
+            double time_range0 = time_duration.x(), time_range1 = time_duration.y();
+            double time_check = time_range0 + t / 2.0;
+            while (time_range0 < time_range1 && time_check < time_range1 && i < num_points) {
+                control_t =
+                    std::fabs(time_range0 - render.gps_times_[i]) - std::fabs(time_range0 - render.gps_times_[i + 1]);
+                check_t =
+                    std::fabs(time_check - render.gps_times_[i]) - std::fabs(time_check - render.gps_times_[i + 1]);
+                if (control_t < 0.0) {
+                    for (int j = 0; j < 6; j++) {
+                        std::vector<double> control_temp(5);
+                        if (std::fabs(render.gps_times_[i + j * cp_i] - render.gps_times_[i]) < 1.0) {
+                            //激光点频实际为20万点/秒，每组6个控制点保证在2秒范围内
+                            control_temp[0] = render.gps_times_[i + j * cp_i];
+                            control_temp[1] = render.points_[i + j * cp_i].x();
+                            control_temp[2] = render.points_[i + j * cp_i].y();
+                            control_temp[3] = render.points_[i + j * cp_i].z();
+                            control_temp[4] = render.intensitys_[i + j * cp_i];
+                            controls_pcds.push_back(control_temp);
+                        }
+                    }
+                    i++, time_range0 += t;
+                    continue;
+                } else if (check_t < 0.0) {
+                    for (int j = 0; j < 6; j++) {
+                        std::vector<double> check_temp(5);
+                        if (std::fabs(render.gps_times_[i + j * ck_i] - render.gps_times_[i]) < 5.0) {
+                            //每组检查点设置在5秒范围内
+                            check_temp[0] = render.gps_times_[i + j * ck_i];
+                            check_temp[1] = render.points_[i + j * ck_i].x();
+                            check_temp[2] = render.points_[i + j * ck_i].y();
+                            check_temp[3] = render.points_[i + j * ck_i].z();
+                            check_temp[4] = render.intensitys_[i + j * ck_i];
+                            warp_checks.push_back(check_temp);
+                        }
+                    }
+                    i++, time_check += t;
+                    continue;
+                } else {
+                    i++;
+                }
+            }
+        }
+
+        //输出控制点数据
+        std::cout << "export controls and checks..." << std::endl;
+        std::ofstream controls_file(path_controls);
+        for (int k = 0; k < controls_gcps.size(); k++) {
+            controls_file << std::setprecision(15) << controls_pcds[k][0] << " ";
+            controls_file << std::setprecision(15) << controls_pcds[k][1] << " ";
+            controls_file << std::setprecision(15) << controls_pcds[k][2] << " ";
+            controls_file << std::setprecision(15) << controls_pcds[k][3] << " ";           
+
+            controls_file << std::setprecision(15) << controls_gcps[k][1] << " ";
+            controls_file << std::setprecision(15) << controls_gcps[k][2] << " ";
+            controls_file << std::setprecision(15) << controls_gcps[k][3] << " ";
+
+            controls_file << std::setprecision(15) << controls_pcds[k][4] << " ";
+            controls_file << std::setprecision(15) << controls_gcps[k][4];
+            controls_file << "\n ";
+        }
+        controls_file.close();
+
+        // truth las controls
+        std::ofstream controls_file_t("gcp.txt");
+        for (int k = 0; k < controls_gcps.size(); k++) {
+            controls_file_t << std::setprecision(15) << controls_gcps[k][0] << " ";
+            controls_file_t << std::setprecision(15) << controls_gcps[k][1] << " ";
+            controls_file_t << std::setprecision(15) << controls_gcps[k][2] << " ";
+            controls_file_t << std::setprecision(15) << controls_gcps[k][3] << " ";
+            controls_file_t << std::setprecision(15) << controls_gcps[k][4] << " ";\
+            controls_file_t << "\n ";
+        }
+        controls_file_t.close();
+
+        std::ofstream controls_file_w("mms.txt");
+        for (int k = 0; k < controls_gcps.size(); k++) {
+            controls_file_w << std::setprecision(15) << controls_pcds[k][0] << " ";
+            controls_file_w << std::setprecision(15) << controls_pcds[k][1] << " ";
+            controls_file_w << std::setprecision(15) << controls_pcds[k][2] << " ";
+            controls_file_w << std::setprecision(15) << controls_pcds[k][3] << " ";
+            controls_file_w << std::setprecision(15) << controls_pcds[k][4] << " ";
+            controls_file_w << "\n ";
+        }
+        controls_file_w.close();
 
 
 
-    //PointCloudWithData time_points;
-    //time_points = get_points(path_input);
+        //纠正POS并输出纠正后的点云
+        std::cout << "rectify the pos and warp laz..." << std::endl;
+        Pos pos_warp, pos_rec;
+        pos_warp.load_pos(path_warp_pos);
+        std::string pos_rec_file = "pos_rec.pos";
+        pos_warp.export_rectified_pos(path_controls, pos_rec_file);
 
-    return 0;
+        HsrFile file(path_hsr);
+        file.set_config(path_config);
+        file.set_body(path_config);
+
+        std::string name = get_filename_noext(path_hsr);
+        std::string dir = get_directory(path_hsr);
+        name = join_paths(dir, name +std::to_string((int)time_interval)+ "s-rec.laz");
+        pos_rec.load_pos(pos_rec_file);
+        file.export_las_ooc(name, pos_rec);
+
+
+        //加载纠正后的点云，提取检查点
+        std::cout << "extract checks from the rectified laz..." << std::endl;
+        render.load_las(name);
+        std::vector<std::vector<double>> rec_checks;
+        {
+            int i = 0, ck_i = 150000;
+            double min_t, mid;
+            int num_points = render.gps_times_.size();
+            double time_range0 = time_duration.x(), time_range1 = time_duration.y();
+            while (time_range0 < time_range1 && i < num_points) {
+                min_t = std::fabs(time_range0 + t / 2.0 - render.gps_times_[i]) -
+                        std::fabs(time_range0 + t / 2.0 - render.gps_times_[i + 1]);
+                if (min_t < 0.0) {
+                    for (int j = 0; j < 6; j++) {
+                        std::vector<double> control_temp(5);
+                        if (std::fabs(render.gps_times_[i + j * ck_i] - render.gps_times_[i]) < 5.0) {
+                            //激光点频实际为20万点/秒，每组6个控制点保证在2秒范围内
+                            control_temp[0] = render.gps_times_[i + j * ck_i];
+                            control_temp[1] = render.points_[i + j * ck_i].x();
+                            control_temp[2] = render.points_[i + j * ck_i].y();
+                            control_temp[3] = render.points_[i + j * ck_i].z();
+                            control_temp[4] = render.intensitys_[i + j * ck_i];
+                            rec_checks.push_back(control_temp);
+                        }
+                    }
+                    i++, time_range0 += t;
+                    continue;
+                } else {
+                    i++;
+                }
+            }
+        }
+        
+        //输出检查点数据
+        std::ofstream checks_file(path_checks);
+        checks_file << "time"
+                    << "   "
+                    << "truth_x"
+                    << "   "
+                    << "truth_y"
+                    << "   "
+                    << "truth_z"
+                    << "   "
+                    << "warp_x"
+                    << "   "
+                    << "warp_y"
+                    << "   "
+                    << "warp_z"
+                    << "   "
+                    << "rec_x"
+                    << "   "
+                    << "rec_y"
+                    << "   "
+                    << "rec_z"
+                    << "   "
+                    << "warp_x-truth_x"
+                    << "   "
+                    << "warp_y-truth_y"
+                    << "   "
+                    << "warp_z-truth_z"
+                    << "   "
+                    << "rec_x-truth_x"
+                    << "   "
+                    << "rec_y-truth_y"
+                    << "   "
+                    << "rec_z-truth_z"
+                    << "\n";
+        for (int k = 0; k < truth_checks.size(); k++) {
+            
+            if (truth_checks[k][0] == warp_checks[k][0] && truth_checks[k][0] == rec_checks[k][0]) {
+                checks_file << std::setprecision(15) << truth_checks[k][0] << " ";
+
+                checks_file << std::setprecision(15) << truth_checks[k][1] << " ";
+                checks_file << std::setprecision(15) << truth_checks[k][2] << " ";
+                checks_file << std::setprecision(15) << truth_checks[k][3] << " ";
+
+                checks_file << std::setprecision(15) << warp_checks[k][1] << " ";
+                checks_file << std::setprecision(15) << warp_checks[k][2] << " ";
+                checks_file << std::setprecision(15) << warp_checks[k][3] << " ";
+
+                checks_file << std::setprecision(15) << rec_checks[k][1] << " ";
+                checks_file << std::setprecision(15) << rec_checks[k][2] << " ";
+                checks_file << std::setprecision(15) << rec_checks[k][3] << " ";
+
+                checks_file << std::setprecision(15) << warp_checks[k][1] - truth_checks[k][1] << " ";
+                checks_file << std::setprecision(15) << warp_checks[k][2] - truth_checks[k][2] << " ";
+                checks_file << std::setprecision(15) << warp_checks[k][3] - truth_checks[k][3] << " ";
+
+                checks_file << std::setprecision(15) << rec_checks[k][1] - truth_checks[k][1] << " ";
+                checks_file << std::setprecision(15) << rec_checks[k][2] - truth_checks[k][2] << " ";
+                checks_file << std::setprecision(15) << rec_checks[k][3] - truth_checks[k][3] << " ";
+
+                checks_file << "\n ";
+            }
+        }
+
+
+        
+    
+	return 0; 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

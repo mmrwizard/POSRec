@@ -17,8 +17,12 @@ public:
 
     cv::Mat draw_color(const LadybugImage&camera);
 
-protected:
     PointCloudPtr pcd_;
+    std::vector<double> gps_times_, intensitys_;
+    std::vector<Eigen::Vector3d> points_;
+
+protected:
+    
     Vector3d offset_;
 };
 } // namespace h2o

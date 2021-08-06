@@ -33,8 +33,12 @@ void LiDARRender::load_las(const std::string &path) {
     laszip_get_point_pointer(lasreader, &point);
 
     PointCloudPtr pcd = std::make_shared<open3d::geometry::PointCloud>();
-    pcd->points_.resize(num_points);
-    pcd->colors_.resize(num_points);
+    //pcd->points_.resize(num_points);
+    //pcd->colors_.resize(num_points);
+    std::vector<double> gps_times, intensitys;
+    gps_times.resize(num_points);
+    points_.resize(num_points);
+    intensitys.resize(num_points);
 
     for (int i = 0; i < num_points; ++i) {
         if (laszip_read_point(lasreader)) {
@@ -43,21 +47,27 @@ void LiDARRender::load_las(const std::string &path) {
         double x = (double)point->X * lasheader->x_scale_factor + lasheader->x_offset;
         double y = (double)point->Y * lasheader->y_scale_factor + lasheader->y_offset;
         double z = (double)point->Z * lasheader->z_scale_factor + lasheader->z_offset;
+        double t = (double)point->gps_time;
 
-        x -= offset_.x();
-        y -= offset_.y();
-        z -= offset_.z();
+        //x -= offset_.x();
+        //y -= offset_.y();
+        //z -= offset_.z();
 
-        double intensity = point->intensity / 65535.0;
+        double intensity = point->intensity;
 
-        pcd->points_[i] = Vector3d(x, y, z);
-        pcd->colors_[i] = Vector3d(intensity, intensity, intensity);
+        //pcd->points_[i] = Vector3d(x, y, z);
+        //pcd->colors_[i] = Vector3d(intensity, intensity, intensity);
+        intensitys[i] = intensity;
+        gps_times[i] = t;
+        points_[i] = Vector3d(x, y, z);
     }
 
     laszip_close_reader(lasreader);
     laszip_destroy(lasreader);
 
     pcd_ = pcd;
+    gps_times_ = gps_times;
+    intensitys_ = intensitys;
 }
 
 cv::Mat LiDARRender::draw_color(const LadybugImage &camera) {
