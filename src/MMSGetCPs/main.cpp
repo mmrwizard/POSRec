@@ -82,13 +82,13 @@ int main(int argc, char **argv) {
             double control_t, check_t;
             int num_points = render.gps_times_.size();
             double time_range0 = time_duration.x(), time_range1 = time_duration.y();
-            double time_check = time_range0 + t / 2.0;
+            double time_check = time_range0 + 1.0;
             while (time_range0 < time_range1 && time_check < time_range1 && i < num_points) {
                 control_t =
                     std::fabs(time_range0 - render.gps_times_[i]) - std::fabs(time_range0 - render.gps_times_[i + 1]);
                 check_t = std::fabs(time_check - render.gps_times_[i]) -
                           std::fabs(time_check - render.gps_times_[i + 1]);
-                if (control_t < 0.0) {
+                if (control_t < 0.0 && (i + 6 * cp_i) < num_points) {
                     for (int j = 0; j < 6; j++) {
                         std::vector<double> control_temp(5);
                         if (std::fabs(render.gps_times_[i + j * cp_i] - render.gps_times_[i]) < 1.0) {
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
                             truth_checks.push_back(check_temp);
                         }
                     }
-                    i++, time_check += t;
+                    i++, time_check += 10.0;
                     continue;
                 }
                 else {
@@ -135,13 +135,13 @@ int main(int argc, char **argv) {
             double control_t, check_t;
             int num_points = render.gps_times_.size();
             double time_range0 = time_duration.x(), time_range1 = time_duration.y();
-            double time_check = time_range0 + t / 2.0;
+            double time_check = time_range0 + 1.0;
             while (time_range0 < time_range1 && time_check < time_range1 && i < num_points) {
                 control_t =
                     std::fabs(time_range0 - render.gps_times_[i]) - std::fabs(time_range0 - render.gps_times_[i + 1]);
                 check_t =
                     std::fabs(time_check - render.gps_times_[i]) - std::fabs(time_check - render.gps_times_[i + 1]);
-                if (control_t < 0.0) {
+                if (control_t < 0.0 && (i + 6 * cp_i) < num_points) {
                     for (int j = 0; j < 6; j++) {
                         std::vector<double> control_temp(5);
                         if (std::fabs(render.gps_times_[i + j * cp_i] - render.gps_times_[i]) < 1.0) {
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
                             warp_checks.push_back(check_temp);
                         }
                     }
-                    i++, time_check += t;
+                    i++, time_check += 10.0;
                     continue;
                 } else {
                     i++;
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
             controls_file_t << std::setprecision(15) << controls_gcps[k][1] << " ";
             controls_file_t << std::setprecision(15) << controls_gcps[k][2] << " ";
             controls_file_t << std::setprecision(15) << controls_gcps[k][3] << " ";
-            controls_file_t << std::setprecision(15) << controls_gcps[k][4] << " ";\
+            controls_file_t << std::setprecision(15) << controls_gcps[k][4] << " ";
             controls_file_t << "\n ";
         }
         controls_file_t.close();
@@ -247,11 +247,11 @@ int main(int argc, char **argv) {
             int i = 0, ck_i = 150000;
             double min_t, mid;
             int num_points = render.gps_times_.size();
-            double time_range0 = time_duration.x(), time_range1 = time_duration.y();
+            double time_range0 = time_duration.x()+1, time_range1 = time_duration.y();
             while (time_range0 < time_range1 && i < num_points) {
-                min_t = std::fabs(time_range0 + t / 2.0 - render.gps_times_[i]) -
-                        std::fabs(time_range0 + t / 2.0 - render.gps_times_[i + 1]);
-                if (min_t < 0.0) {
+                min_t = std::fabs(time_range0 - render.gps_times_[i]) -
+                        std::fabs(time_range0 - render.gps_times_[i + 1]);
+                if (min_t < 0.0 && (i + 6 * ck_i) < num_points) {
                     for (int j = 0; j < 6; j++) {
                         std::vector<double> control_temp(5);
                         if (std::fabs(render.gps_times_[i + j * ck_i] - render.gps_times_[i]) < 5.0) {
@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
                             rec_checks.push_back(control_temp);
                         }
                     }
-                    i++, time_range0 += t;
+                    i++, time_range0 += 10.0;
                     continue;
                 } else {
                     i++;
@@ -273,70 +273,175 @@ int main(int argc, char **argv) {
         }
         
         //输出检查点数据
+        int c_num = 0;
+        double c_rmse_r, c_rmse_w;
         std::ofstream checks_file(path_checks);
         checks_file << "time"
-                    << "   "
+                    << ","
                     << "truth_x"
-                    << "   "
+                    << ","
                     << "truth_y"
-                    << "   "
+                    << ","
                     << "truth_z"
-                    << "   "
+                    << ","
                     << "warp_x"
-                    << "   "
+                    << ","
                     << "warp_y"
-                    << "   "
+                    << ","
                     << "warp_z"
-                    << "   "
+                    << ","
                     << "rec_x"
-                    << "   "
+                    << ","
                     << "rec_y"
-                    << "   "
+                    << ","
                     << "rec_z"
-                    << "   "
+                    << ","
                     << "warp_x-truth_x"
-                    << "   "
+                    << ","
                     << "warp_y-truth_y"
-                    << "   "
+                    << ","
                     << "warp_z-truth_z"
-                    << "   "
+                    << ","
                     << "rec_x-truth_x"
-                    << "   "
+                    << ","
                     << "rec_y-truth_y"
-                    << "   "
+                    << ","
                     << "rec_z-truth_z"
+                    << ","
+                    << "Time"
+                    << ","
+                    << "Dev. origin"
+                    << ","
+                    << "Dev. Rectified"
+                    << ","
+                    << "rmse_wx"
+                    << ","
+                    << "rmse_wy"
+                    << ","
+                    << "rmse_wz"
+                    << ","
+                    << "rmse_rx"
+                    << ","
+                    << "rmse_ry"
+                    << ","
+                    << "rmse_rz"
+                    << ","
+                    << "rmse_wxyz"
+                    << ","
+                    << "rmse_rxyz"
                     << "\n";
         for (int k = 0; k < truth_checks.size(); k++) {
             
             if (truth_checks[k][0] == warp_checks[k][0] && truth_checks[k][0] == rec_checks[k][0]) {
-                checks_file << std::setprecision(15) << truth_checks[k][0] << " ";
+                c_num++;
+                checks_file << std::setprecision(15) << truth_checks[k][0] << ",";
 
-                checks_file << std::setprecision(15) << truth_checks[k][1] << " ";
-                checks_file << std::setprecision(15) << truth_checks[k][2] << " ";
-                checks_file << std::setprecision(15) << truth_checks[k][3] << " ";
+                checks_file << std::setprecision(15) << truth_checks[k][1] << ",";
+                checks_file << std::setprecision(15) << truth_checks[k][2] << ",";
+                checks_file << std::setprecision(15) << truth_checks[k][3] << ",";
 
-                checks_file << std::setprecision(15) << warp_checks[k][1] << " ";
-                checks_file << std::setprecision(15) << warp_checks[k][2] << " ";
-                checks_file << std::setprecision(15) << warp_checks[k][3] << " ";
+                checks_file << std::setprecision(15) << warp_checks[k][1] << ",";
+                checks_file << std::setprecision(15) << warp_checks[k][2] << ",";
+                checks_file << std::setprecision(15) << warp_checks[k][3] << ",";
 
-                checks_file << std::setprecision(15) << rec_checks[k][1] << " ";
-                checks_file << std::setprecision(15) << rec_checks[k][2] << " ";
-                checks_file << std::setprecision(15) << rec_checks[k][3] << " ";
+                checks_file << std::setprecision(15) << rec_checks[k][1] << ",";
+                checks_file << std::setprecision(15) << rec_checks[k][2] << ",";
+                checks_file << std::setprecision(15) << rec_checks[k][3] << ",";
 
-                checks_file << std::setprecision(15) << warp_checks[k][1] - truth_checks[k][1] << " ";
-                checks_file << std::setprecision(15) << warp_checks[k][2] - truth_checks[k][2] << " ";
-                checks_file << std::setprecision(15) << warp_checks[k][3] - truth_checks[k][3] << " ";
+                checks_file << std::setprecision(15) << warp_checks[k][1] - truth_checks[k][1] << ",";
+                checks_file << std::setprecision(15) << warp_checks[k][2] - truth_checks[k][2] << ",";
+                checks_file << std::setprecision(15) << warp_checks[k][3] - truth_checks[k][3] << ",";
 
-                checks_file << std::setprecision(15) << rec_checks[k][1] - truth_checks[k][1] << " ";
-                checks_file << std::setprecision(15) << rec_checks[k][2] - truth_checks[k][2] << " ";
-                checks_file << std::setprecision(15) << rec_checks[k][3] - truth_checks[k][3] << " ";
+                checks_file << std::setprecision(15) << rec_checks[k][1] - truth_checks[k][1] << ",";
+                checks_file << std::setprecision(15) << rec_checks[k][2] - truth_checks[k][2] << ",";
+                checks_file << std::setprecision(15) << rec_checks[k][3] - truth_checks[k][3] << ",";
+                double deviation_w, deviation_r, w_x = 0, w_y = 0, w_z = 0, r_x = 0, r_y = 0, r_z = 0;
+                deviation_w =
+                    std::sqrt((warp_checks[k][1] - truth_checks[k][1]) * (warp_checks[k][1] - truth_checks[k][1]) +
+                              (warp_checks[k][2] - truth_checks[k][2]) * (warp_checks[k][2] - truth_checks[k][2]) +
+                              (warp_checks[k][3] - truth_checks[k][3]) * (warp_checks[k][3] - truth_checks[k][3]));
+                deviation_r =
+                    std::sqrt((rec_checks[k][1] - truth_checks[k][1]) * (rec_checks[k][1] - truth_checks[k][1]) +
+                              (rec_checks[k][2] - truth_checks[k][2]) * (rec_checks[k][2] - truth_checks[k][2]) +
+                              (rec_checks[k][3] - truth_checks[k][3]) * (rec_checks[k][3] - truth_checks[k][3]));
 
+                w_x += (warp_checks[k][1] - truth_checks[k][1]) * (warp_checks[k][1] - truth_checks[k][1]);
+                w_y += (warp_checks[k][2] - truth_checks[k][2]) * (warp_checks[k][2] - truth_checks[k][2]);
+                w_z += (warp_checks[k][3] - truth_checks[k][3]) * (warp_checks[k][3] - truth_checks[k][3]);
+
+                r_x += (rec_checks[k][1] - truth_checks[k][1]) * (rec_checks[k][1] - truth_checks[k][1]);
+                r_y += (rec_checks[k][2] - truth_checks[k][2]) * (rec_checks[k][2] - truth_checks[k][2]);
+                r_z += (rec_checks[k][3] - truth_checks[k][3]) * (rec_checks[k][3] - truth_checks[k][3]);
+
+                checks_file << std::setprecision(15) << truth_checks[k][0] << ",";
+                checks_file << std::setprecision(15) << deviation_w << ",";
+                checks_file << std::setprecision(15) << deviation_r << ",";
+
+                double rmse_wx, rmse_rx;
+
+                if (k % 6 == 0) {
+                    checks_file << std::setprecision(15) << std::sqrt(w_x / 6) << ",";
+                    checks_file << std::setprecision(15) << std::sqrt(w_y / 6) << ",";
+                    checks_file << std::setprecision(15) << std::sqrt(w_z / 6) << ",";
+                    checks_file << std::setprecision(15) << std::sqrt(r_x / 6) << ",";
+                    checks_file << std::setprecision(15) << std::sqrt(r_y / 6) << ",";
+                    checks_file << std::setprecision(15) << std::sqrt(r_z / 6) << ",";
+
+                    checks_file << std::setprecision(15) << std::sqrt((w_x + w_y + w_z) / 6) << ",";
+                    checks_file << std::setprecision(15) << std::sqrt((r_x + r_y + r_z) / 6) << ",";
+
+                    w_x = w_y = w_z = r_x = r_y = r_z = 0;
+                }
                 checks_file << "\n ";
+                
+
+                //if (k > 1){
+                //    if (truth_checks[k][0] - truth_checks[k - 1][0] > 3) {
+                //        std::cout << k << std::endl;
+                //        double c_rmse_r, c_rmse_w, c_mean_r_x, c_mean_r_y, c_mean_r_z, c_mean_w_x, c_mean_w_y,
+                //            c_mean_w_z, c_max_xy, c_max_z, c_min_xy, c_min_z;
+                //        double sum_w_x = 0, sum_w_y = 0, sum_w_z = 0, sum_r_x = 0, sum_r_y = 0, sum_r_z = 0;
+                //       
+                //        for (int i = 0; i < c_num; i++) {
+                //            sum_r_x += rec_checks[k - i][1];
+                //            sum_r_y += rec_checks[k - i][2];
+                //            sum_r_z += rec_checks[k - i][3];
+                //            
+                //            sum_w_x += warp_checks[k - i][1];
+                //            sum_w_y += warp_checks[k - i][2];
+                //            sum_w_z += warp_checks[k - i][3];
+                //        }
+                //        c_mean_r_x = sum_r_x / c_num;
+                //        c_mean_r_y = sum_r_y / c_num;
+                //        c_mean_r_z = sum_r_z / c_num;
+                //       
+                //        c_mean_w_x = sum_w_x / c_num;
+                //        c_mean_w_y = sum_w_y / c_num;
+                //        c_mean_w_z = sum_w_z / c_num;
+
+                //        double sum_sqare_r = 0, sum_sqare_w = 0;
+                //        for (int i = 0; i < c_num; i++) {
+                //            sum_sqare_r +=
+                //                (c_mean_r_x - truth_checks[k - i][1]) * (c_mean_r_x - truth_checks[k - i][1]) +
+                //                (c_mean_r_y - truth_checks[k - i][2]) * (c_mean_r_y - truth_checks[k - i][2]) +
+                //                (c_mean_r_z - truth_checks[k - i][3]) * (c_mean_r_z - truth_checks[k - i][3]);
+                //            sum_sqare_w +=
+                //                (c_mean_w_x - truth_checks[k - i][1]) * (c_mean_w_x - truth_checks[k - i][1]) +
+                //                (c_mean_w_y - truth_checks[k - i][2]) * (c_mean_w_y - truth_checks[k - i][2]) +
+                //                (c_mean_w_z - truth_checks[k - i][3]) * (c_mean_w_z - truth_checks[k - i][3]);
+                //        }
+                //        c_rmse_r = std::sqrt(sum_sqare_r / c_num);
+                //        c_rmse_w = std::sqrt(sum_sqare_w / c_num);
+
+                //        checks_file << std::setprecision(15) << c_rmse_w << ",";
+                //        checks_file << std::setprecision(15) << c_rmse_r << ",";
+                //        c_num = 0;//初始化检查点计数
+                //    }
+                //}
             }
         }
-
-
-        
+        checks_file.close();
+     
     
 	return 0; 
 }

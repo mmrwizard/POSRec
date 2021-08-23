@@ -335,9 +335,9 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
         control_min_max.x() = std::min(control_min_max.x(), controls_times[i + 1]);
         control_min_max.y() = std::max(control_min_max.y(), controls_times[i + 1]);
     }
-    //进出隧道前后10s处也视作控制点
-    controls_times[0] = control_min_max.x() - 10;
-    controls_times[nsets+1] = control_min_max.y() + 10;    
+    //进出隧道前后5s处也视作控制点
+    controls_times[0] = control_min_max.x() - 5;
+    controls_times[nsets+1] = control_min_max.y() + 5;    
 
     //根据控制点时间定位POS中需要纠正的位置
     std::vector<std::vector<double>> pos_news;
@@ -382,18 +382,24 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
             verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
             //POS中姿态角每个时刻观测值互相独立，加入姿态角改正效果不明显，且受标靶计算的旋转参数精度限制
-           /*{
-           double u = (n_pos - j) / double(n_pos);
-            Matrix3d rotation_u;
-            rotation_u = rotation_quaternions[i].slerp(1-u, rotation_quaternions[i + 1]);
-            auto verify_rpy = Pos::rotation_to_ypr(rotation_u);
-            verify_i[4] = verify_rpy[0] * 180 / 3.1415;
-            verify_i[5] = verify_rpy[1] * 180 / 3.1415;
-            verify_i[6] = verify_rpy[2] * 180 / 3.1415;
-            std::cout << verify_i[4] << std::endl;
-            std::cout << verify_i[5] << std::endl;
-            std::cout << verify_i[6] << std::endl;
-            }*/
+           //{
+           //double u = j / double(n_pos);
+           // Matrix3d rotation_u;
+           // rotation_u = rotation_quaternions[i].slerp(u, rotation_quaternions[i + 1]);
+           //// auto verify_rpy = Pos::rotation_to_ypr(rotation_u);
+           // auto verify_rpy = rotation_u.eulerAngles(0, 1, 2);
+           // Eigen::Matrix3d t_r = Eigen::Matrix3d::Identity();
+           // t_r(0, 0) = 0.99;
+           // auto rpy_t = t_r.eulerAngles(0, 1, 2);
+           // std::cout << rpy_t << std::endl;
+           // verify_i[4] = verify_rpy[0] * 180 / M_PI;
+           // verify_i[5] = verify_rpy[1] * 180 / M_PI;
+           // verify_i[6] = verify_rpy[2] * 180 / M_PI;
+           // rpy_file << verify_rpy[0] << " ";
+           // rpy_file << verify_rpy[1] << " ";
+           // rpy_file << verify_rpy[2] << " ";
+           // rpy_file << "\n ";
+           //}
             verifys.push_back(verify_i);
             verify_i.clear();
         }
@@ -406,7 +412,6 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     for (int i=0;i<utctimes_.size();i++) {
         if (std::abs(utctimes_[i] - verifys[0][0]) < _pos_interval/2.0 ) {
             for (int j = 0; j < verifys.size(); j++) {
-                i++;
                 ofile << std::to_string(verifys[j][0]) << "   ";
                 ofile << std::to_string(x_[i] + verifys[j][1]) << "   ";
                 ofile << std::to_string(y_[i] + verifys[j][2]) << "   ";
@@ -418,6 +423,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
                 ofile << std::to_string(vy_[i]) << "   ";
                 ofile << std::to_string(vz_[i]) << "   ";
                 ofile << "\n";
+                i++;
             }
         } else {
             ofile << std::to_string(utctimes_[i]) << "   ";
@@ -495,7 +501,9 @@ Vector3d Pos::get_velocity(double gpstime) const {
     u = u - i0;
 
     if (i0 < 0) {
-        return velocities_.front();
+       
+        return Eigen::Vector3d(0,0,0); 
+        // return velocities_.front();
     } else if (i1 >= n) {
         return velocities_.back();
     } else {
