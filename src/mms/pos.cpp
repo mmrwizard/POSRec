@@ -365,7 +365,20 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             }
         }
     }
+    //输出控制点处的改正量
+    std::ofstream verify_file("verify.txt");
+    for (int i = 0; i < pos_news.size(); i++)
+    {
+        verify_file << pos_news[i][0] << "  ";
+        verify_file << pos_news[i][1] << "  ";
+        verify_file << pos_news[i][2] << "  ";
+        verify_file << pos_news[i][3] << "  ";
+        verify_file << "\n";
+    }
+    verify_file.close();
+
     //线性内插的方式根据控制点内插得到pos改正数
+    int recitfied_method = 0;
     std::vector<std::vector<std::vector<double>>> verify_all;
     std::vector<std::vector<double>> verifys;
     std::vector<double> verify_i;
@@ -377,10 +390,34 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
         int n_pos = int(controls_interval/_pos_interval);
         for (int j = 0; j < n_pos; j++) {
             verify_i.resize(4);
-            verify_i[0] = pos_news[i][0] + j * _pos_interval;
-            verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
-            verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
-            verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
+            if (recitfied_method == 1)
+            {
+                double omga0, omga1;
+                omga0 = ((n_pos - j) / double(n_pos)) * ((n_pos - j) / double(n_pos));
+                omga1 = ((j / double(n_pos)) * (j / double(n_pos)));
+                verify_i[0] = pos_news[i][0] + j * _pos_interval;
+                verify_i[1] = (pos_news[i][1] * omga0 + pos_news[i + 1][1] * omga1);
+                verify_i[2] = (pos_news[i][2] * omga0 + pos_news[i + 1][2] * omga1);
+                verify_i[3] = (pos_news[i][3] * omga0 + pos_news[i + 1][3] * omga1);
+                
+            } 
+            if (recitfied_method==2)
+            {
+                double omga0, omga1;
+                omga0 = std::sqrt((n_pos - j) / double(n_pos));
+                omga1 = std::sqrt((j / double(n_pos)));
+                verify_i[0] = pos_news[i][0] + j * _pos_interval;
+                verify_i[1] = (pos_news[i][1] * omga0 + pos_news[i + 1][1] * omga1);
+                verify_i[2] = (pos_news[i][2] * omga0 + pos_news[i + 1][2] * omga1);
+                verify_i[3] = (pos_news[i][3] * omga0 + pos_news[i + 1][3] * omga1);
+            }
+            else {
+                verify_i[0] = pos_news[i][0] + j * _pos_interval;
+                verify_i[1] = (pos_news[i][1] * (n_pos - j) / double(n_pos) + pos_news[i + 1][1] * (j / double(n_pos)));
+                verify_i[2] = (pos_news[i][2] * (n_pos - j) / double(n_pos) + pos_news[i + 1][2] * (j / double(n_pos)));
+                verify_i[3] = (pos_news[i][3] * (n_pos - j) / double(n_pos) + pos_news[i + 1][3] * (j / double(n_pos)));
+            }
+            
             //POS中姿态角每个时刻观测值互相独立，加入姿态角改正效果不明显，且受标靶计算的旋转参数精度限制
            //{
            //double u = j / double(n_pos);

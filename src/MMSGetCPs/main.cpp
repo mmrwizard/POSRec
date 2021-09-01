@@ -66,11 +66,17 @@ int main(int argc, char **argv) {
             const char *s = time_intervals.data();
             std::sscanf(s, "%lf", &time_interval);
         }
-        const double t = time_interval;
+        
     
         path_truth_las = QFileInfo(QString::fromLocal8Bit(path_truth_las.c_str())).absoluteFilePath().toStdString();
         path_checks = QFileInfo(QString::fromLocal8Bit(path_checks.c_str())).absoluteFilePath().toStdString();
 
+        for (int t_iter = 68; t_iter < 100; t_iter++) {
+
+        const double t = time_interval;
+            if ((int)time_interval % 5 == 0) {
+                time_interval++;
+            }
         //1、提取真值点云中的控制点及检查点
         std::cout << "extract truth laz controls and checks..." << std::endl;      
         LiDARRender render;
@@ -92,7 +98,7 @@ int main(int argc, char **argv) {
                     for (int j = 0; j < 6; j++) {
                         std::vector<double> control_temp(5);
                         if (std::fabs(render.gps_times_[i + j * cp_i] - render.gps_times_[i]) < 1.0) {
-                            //激光点频实际为20万点/秒，每组6个控制点保证在2秒范围内
+                            //激光点频实际为20万点/秒，每组6个控制点保证在1秒范围内
                             control_temp[0] = render.gps_times_[i + j * cp_i]; 
                             control_temp[1] = render.points_[i + j * cp_i].x();
                             control_temp[2] = render.points_[i + j * cp_i].y();
@@ -145,7 +151,7 @@ int main(int argc, char **argv) {
                     for (int j = 0; j < 6; j++) {
                         std::vector<double> control_temp(5);
                         if (std::fabs(render.gps_times_[i + j * cp_i] - render.gps_times_[i]) < 1.0) {
-                            //激光点频实际为20万点/秒，每组6个控制点保证在2秒范围内
+                            //激光点频实际为20万点/秒，每组6个控制点保证在1秒范围内
                             control_temp[0] = render.gps_times_[i + j * cp_i];
                             control_temp[1] = render.points_[i + j * cp_i].x();
                             control_temp[2] = render.points_[i + j * cp_i].y();
@@ -197,7 +203,7 @@ int main(int argc, char **argv) {
         controls_file.close();
 
         // truth las controls
-        std::ofstream controls_file_t("gcp.txt");
+        std::ofstream controls_file_t("time_intervals-" + std::to_string(time_interval) + "s-gcp.txt");
         for (int k = 0; k < controls_gcps.size(); k++) {
             controls_file_t << std::setprecision(15) << controls_gcps[k][0] << " ";
             controls_file_t << std::setprecision(15) << controls_gcps[k][1] << " ";
@@ -208,7 +214,7 @@ int main(int argc, char **argv) {
         }
         controls_file_t.close();
 
-        std::ofstream controls_file_w("mms.txt");
+        std::ofstream controls_file_w("time_intervals-" + std::to_string(time_interval) + "s-mms.txt");
         for (int k = 0; k < controls_gcps.size(); k++) {
             controls_file_w << std::setprecision(15) << controls_pcds[k][0] << " ";
             controls_file_w << std::setprecision(15) << controls_pcds[k][1] << " ";
@@ -275,7 +281,7 @@ int main(int argc, char **argv) {
         //输出检查点数据
         int c_num = 0;
         double c_rmse_r, c_rmse_w;
-        std::ofstream checks_file(path_checks);
+        std::ofstream checks_file(path_checks + "-" + std::to_string(time_interval)+"s-checks.csv");
         checks_file << "time"
                     << ","
                     << "truth_x"
@@ -314,22 +320,13 @@ int main(int argc, char **argv) {
                     << ","
                     << "Dev. Rectified"
                     << ","
-                    << "rmse_wx"
-                    << ","
-                    << "rmse_wy"
-                    << ","
-                    << "rmse_wz"
-                    << ","
-                    << "rmse_rx"
-                    << ","
-                    << "rmse_ry"
-                    << ","
-                    << "rmse_rz"
-                    << ","
-                    << "rmse_wxyz"
+                    << "max"
                     << ","
                     << "rmse_rxyz"
                     << "\n";
+
+        double deviation_w, deviation_r, w_x = 0, w_y = 0, w_z = 0, r_x = 0, r_y = 0, r_z = 0, max_x = 0, max_y = 0,
+                                         max_z = 0, min_x = 0, min_y = 0, min_z = 0;
         for (int k = 0; k < truth_checks.size(); k++) {
             
             if (truth_checks[k][0] == warp_checks[k][0] && truth_checks[k][0] == rec_checks[k][0]) {
@@ -355,7 +352,7 @@ int main(int argc, char **argv) {
                 checks_file << std::setprecision(15) << rec_checks[k][1] - truth_checks[k][1] << ",";
                 checks_file << std::setprecision(15) << rec_checks[k][2] - truth_checks[k][2] << ",";
                 checks_file << std::setprecision(15) << rec_checks[k][3] - truth_checks[k][3] << ",";
-                double deviation_w, deviation_r, w_x = 0, w_y = 0, w_z = 0, r_x = 0, r_y = 0, r_z = 0;
+                
                 deviation_w =
                     std::sqrt((warp_checks[k][1] - truth_checks[k][1]) * (warp_checks[k][1] - truth_checks[k][1]) +
                               (warp_checks[k][2] - truth_checks[k][2]) * (warp_checks[k][2] - truth_checks[k][2]) +
@@ -377,20 +374,30 @@ int main(int argc, char **argv) {
                 checks_file << std::setprecision(15) << deviation_w << ",";
                 checks_file << std::setprecision(15) << deviation_r << ",";
 
-                double rmse_wx, rmse_rx;
+                if (max_x < std::abs(rec_checks[k][1] - truth_checks[k][1])) {
+                    max_x = std::abs(rec_checks[k][1] - truth_checks[k][1]);
+                }
+                if (max_y < std::abs(rec_checks[k][2] - truth_checks[k][2])) {
+                    max_y = std::abs(rec_checks[k][2] - truth_checks[k][2]);
+                }
+                if (max_z < std::abs(rec_checks[k][3] - truth_checks[k][3])) {
+                    max_z = std::abs(rec_checks[k][3] - truth_checks[k][3]);
+                }
 
                 if (k % 6 == 0) {
-                    checks_file << std::setprecision(15) << std::sqrt(w_x / 6) << ",";
+                 /*   checks_file << std::setprecision(15) << std::sqrt(w_x / 6) << ",";
                     checks_file << std::setprecision(15) << std::sqrt(w_y / 6) << ",";
                     checks_file << std::setprecision(15) << std::sqrt(w_z / 6) << ",";
                     checks_file << std::setprecision(15) << std::sqrt(r_x / 6) << ",";
                     checks_file << std::setprecision(15) << std::sqrt(r_y / 6) << ",";
-                    checks_file << std::setprecision(15) << std::sqrt(r_z / 6) << ",";
-
+                    checks_file << std::setprecision(15) << std::sqrt(r_z / 6) << ",";*/
+                    
                     checks_file << std::setprecision(15) << std::sqrt((w_x + w_y + w_z) / 6) << ",";
                     checks_file << std::setprecision(15) << std::sqrt((r_x + r_y + r_z) / 6) << ",";
 
-                    w_x = w_y = w_z = r_x = r_y = r_z = 0;
+                    //checks_file << std::setprecision(15) << std::max({max_x, max_y, max_z}) << ",";
+
+                    max_x = max_y = max_z = w_x = w_y = w_z = r_x = r_y = r_z = 0;
                 }
                 checks_file << "\n ";
                 
@@ -442,7 +449,9 @@ int main(int argc, char **argv) {
         }
         checks_file.close();
      
-    
+         time_interval+=1;
+       
+        }
 	return 0; 
 }
 
