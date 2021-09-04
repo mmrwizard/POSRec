@@ -236,7 +236,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     int nframes = gps_time.size();
     for (int i = 0; i < nframes; i++) {
         int count = 0;
-        while (gps_time[i + 1] - gps_time[i] < 3 && i < nframes) {
+        while (gps_time[i + 1] - gps_time[i] < 1 && i < nframes) {
             count++, i++;
         }
         if (count > 2 && i <= nframes) {
@@ -366,16 +366,16 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
         }
     }
     //输出控制点处的改正量
-    std::ofstream verify_file("verify.txt");
+   /* std::ofstream verify_file("verify_pos.csv");
     for (int i = 0; i < pos_news.size(); i++)
     {
-        verify_file << pos_news[i][0] << "  ";
-        verify_file << pos_news[i][1] << "  ";
-        verify_file << pos_news[i][2] << "  ";
-        verify_file << pos_news[i][3] << "  ";
+        verify_file << pos_news[i][0] << " , ";
+        verify_file << pos_news[i][1] << " , ";
+        verify_file << pos_news[i][2] << " , ";
+        verify_file << pos_news[i][3] << " , ";
         verify_file << "\n";
     }
-    verify_file.close();
+    verify_file.close();*/
 
     //线性内插的方式根据控制点内插得到pos改正数
     int recitfied_method = 0;
@@ -441,6 +441,18 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
             verify_i.clear();
         }
     }
+
+     //输出控制点间的改正量
+    /*std::ofstream verify_file2("verify_pos_i.csv");
+    for (int i = 0; i < verifys.size(); i++) {
+        verify_file2 << verifys[i][0] << " , ";
+        verify_file2 << verifys[i][1] << " , ";
+        verify_file2 << verifys[i][2] << " , ";
+        verify_file2 << verifys[i][3] << " , ";
+        verify_file2 << "\n";
+    }
+    verify_file2.close();*/
+
     //输出纠正后POS文件
     std::cout << "export pos file ..." << std::endl;
     std::string path_out="rec-new.pos";

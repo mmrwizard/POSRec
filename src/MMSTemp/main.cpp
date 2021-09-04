@@ -22,69 +22,79 @@
 
 using namespace h2o;
 
-int main() { 
-    std::string dir = "F:\\hdsy\\data\\HD099_20191125_1\\HD099_20191125\\mms\\checks-3-6km";
+int main(int argc, char **argv) { 
 
-    std::vector<double> max_deviation, average_deviation, time, rmses;
-    double max_temp = 0, aver_temp = 0, sum_dev = 0, sum_rmse = 0;
-    double stdv=0;
-    for (int i = 4; i < 60; i++)
-    {
-        std::vector<double> rmse, devation_x, devation_y, devation_z;
-        std::string name = join_paths(dir, "3-6km-" + std::to_string(i) + ".000000s-checks.csv");
-       
-        if (i % 5 == 0)
-        {
-            continue;
-        }
+    QApplication app(argc, argv);
+    initilize_glog(argv);
 
-        rapidcsv::Document doc(name, rapidcsv::LabelParams(0, -1), rapidcsv::SeparatorParams(),
-                               rapidcsv::ConverterParams(true));
-       
-        std::cout << doc.GetRowCount() << std::endl;
-        std::cout << doc.GetCell<double>(doc.GetColumnCount()-1, 0) << std::endl;
-        //std::cout << doc.GetCell<double>(0,468) << std::endl;
-        int count = 0;
-        for (int m = 0; m < doc.GetRowCount()-1; m++) {
-            
-            double devation_xm = doc.GetCell<double>("rec_x-truth_x", m);
-            double devation_ym = doc.GetCell<double>("rec_y-truth_y", m);
-            double devation_zm = doc.GetCell<double>("rec_z-truth_z", m);            
-            double dev = sqrt(devation_xm * devation_xm + devation_ym * devation_ym + devation_zm * devation_zm);
-            if (max_temp < dev) {
-                max_temp = dev;
-            }
-            if (doc.GetRow<double>(m).size() > 20) {
-                double rmse_xyzm = doc.GetCell<double>("rmse_rxyz", m);
-                rmses.push_back(rmse_xyzm);
-                if (!isnan(rmse_xyzm))
-                {
-                    sum_rmse += rmse_xyzm, count++;
-                }
-            }
-           
-        }
-        Eigen::VectorXd xxx;
-        for (int i=0;i<rmses.size();i++)
-        {
-            sum_dev += (rmses[i] - sum_rmse / count) * (rmses[i] - sum_rmse / count);
-        }
-        stdv = std::sqrt(sum_dev/count);
+    cxxopts::Options options("MMSTemp");
 
-        //max_deviation.push_back(max_temp);
-        average_deviation.push_back(stdv);
-        time.push_back(i);
-        max_temp = sum_dev = count = sum_rmse = 0;
-        doc.Clear();
+    std::string dir;
+    std::string unlock_range;
 
+    // clang-format off
+        options.add_options("MMSTemp")
+          ("d, dir", "Input file dir", cxxopts::value(dir))
+          ("r,range", "gnss unlock time range", cxxopts::value(unlock_range))
+          ("h,help", "Print help message.");
+    // clang-format on
+
+    auto arguments = options.parse(argc, argv);
+
+    if (arguments.count("help") || arguments.count("d") == 0) {
+        std::cout << options.help({"MMSTemp"}) << std::endl;
+        return 1;
     }
 
+    Eigen::Vector2d time_unlock;
+    double time_begin, time_end;
+    if (!unlock_range.empty()) {
+        const char *s = unlock_range.data();
+        std::sscanf(s, "%lf,%lf", &time_begin, &time_end);
+        time_unlock << time_begin, time_end;
+    }
 
-    std::ofstream rmse_file("ststic3-6km.csv");
+    std::vector<std::vector<Eigen::Vector3d>> vec_devs;
 
-    for (int i = 0; i < time.size(); i++)
+    for (int i = 2; i < 25; i++)
     {
-        rmse_file << time[i] << "," << average_deviation[i] << "\n";
+        std::vector<Eigen::Vector3d> vec_dev;
+        std::string name = join_paths(dir, "6km-" + std::to_string(i) + ".000000s-checks.csv");
+           
+        rapidcsv::Document doc(name, rapidcsv::LabelParams(0, -1), rapidcsv::SeparatorParams(),
+                               rapidcsv::ConverterParams(true));       
+
+        //读取单个文件中的dev
+        for (int m = 0; m < doc.GetRowCount()-1; m++) {
+            double time_ = doc.GetCell<double>("time", m);
+            double dev_ = doc.GetCell<double>("Dev. Rectified", m);
+            if (time_ > time_begin && time_ < time_end) {
+                vec_dev.push_back(Eigen::Vector3d(i, time_, dev_));
+            }
+        }
+        vec_devs.push_back(vec_dev);
+        vec_dev.clear();
+        doc.Clear();
+    }
+
+    //计算偏差的平均值，最大值，最小值
+    std::vector<Eigen::Vector3d> static_checks;
+    for (int i = 0; i < vec_devs.size(); i++) {
+        double sum_dev = 0, max_dev = 0, min_dev = 0;
+        for (int j = 0; j < vec_devs[i].size(); j++) {
+            sum_dev += vec_devs[i][j].z();
+            if (max_dev < vec_devs[i][j].z()) {
+                max_dev = vec_devs[i][j].z();
+            }
+        }
+       static_checks.push_back(Eigen::Vector3d(vec_devs[i][0].x(), sum_dev / vec_devs[i].size(), max_dev));
+    }
+
+    std::ofstream rmse_file(std::to_string(time_end-time_begin)+"statistic.csv");
+
+    for (int i = 0; i < static_checks.size(); i++)
+    {
+        rmse_file << static_checks[i].x() << "," << static_checks[i].y() << "," << static_checks[i].z() << "\n";
     }
     rmse_file.close();
    
