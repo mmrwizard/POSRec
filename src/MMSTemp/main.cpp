@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 
     std::vector<std::vector<Eigen::Vector3d>> vec_devs;
 
-    for (int i = 2; i < 25; i++)
+    for (int i = 2; i < 45; i++)
     {
         std::vector<Eigen::Vector3d> vec_dev;
         std::string name = join_paths(dir, "6km-" + std::to_string(i) + ".000000s-checks.csv");
