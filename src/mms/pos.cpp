@@ -443,7 +443,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     }
 
      //输出控制点间的改正量
-    /*std::ofstream verify_file2("verify_pos_i.csv");
+    std::ofstream verify_file2("verify_pos_i.csv");
     for (int i = 0; i < verifys.size(); i++) {
         verify_file2 << verifys[i][0] << " , ";
         verify_file2 << verifys[i][1] << " , ";
@@ -451,7 +451,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
         verify_file2 << verifys[i][3] << " , ";
         verify_file2 << "\n";
     }
-    verify_file2.close();*/
+    verify_file2.close();
 
     //输出纠正后POS文件
     std::cout << "export pos file ..." << std::endl;
