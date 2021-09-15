@@ -10,6 +10,7 @@
 #include <mms/hsr_file.h>
 #include <mms/ladybug_stream.h>
 #include <mms/pos.h>
+#include <iomanip>
 
 using namespace h2o;
 

@@ -8,6 +8,7 @@
 #include "rapidcsv.h"
 
 #include <base/base.h>
+#include <iomanip>
 
 namespace h2o {
 Pos::Pos(const std::string &path) { load_pos(path); }
@@ -388,7 +389,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     for (int i = 0; i < nsets + 1; i++) {
         double controls_interval = pos_news[i + 1][0] - pos_news[i][0];
         int n_pos = int(controls_interval/_pos_interval);
-        for (int j = 0; j < n_pos; j++) {
+        for (int j = 0; j < n_pos+1; j++) {
             verify_i.resize(4);
             if (recitfied_method == 1)
             {
@@ -445,10 +446,10 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
      //输出控制点间的改正量
     std::ofstream verify_file2("verify_pos_i.csv");
     for (int i = 0; i < verifys.size(); i++) {
-        verify_file2 << verifys[i][0] << " , ";
-        verify_file2 << verifys[i][1] << " , ";
-        verify_file2 << verifys[i][2] << " , ";
-        verify_file2 << verifys[i][3] << " , ";
+        verify_file2 << std::setprecision(15) << verifys[i][0] << " , ";
+        verify_file2 << std::setprecision(15) << verifys[i][1] << " , ";
+        verify_file2 << std::setprecision(15) << verifys[i][2] << " , ";
+        verify_file2 << std::setprecision(15) << verifys[i][3] << " , ";
         verify_file2 << "\n";
     }
     verify_file2.close();
@@ -458,7 +459,7 @@ void Pos::export_rectified_pos(const std::string &path_control_pts, const std::s
     std::string path_out="rec-new.pos";
     std::ofstream ofile;
     ofile.open(rectified_pos_path);   
-    for (int i=0;i<utctimes_.size();i++) {
+    for (int i = 0; i < utctimes_.size(); i++) {
         if (std::abs(utctimes_[i] - verifys[0][0]) < _pos_interval/2.0 ) {
             for (int j = 0; j < verifys.size(); j++) {
                 ofile << std::to_string(verifys[j][0]) << "   ";
@@ -564,6 +565,7 @@ double Pos::get_speed(double gpstime) const { return get_velocity(gpstime).norm(
 
 VectorXd Pos::get_gpstime() { 
     VectorXd gpstimes;
+    gpstimes.resize(gpstimes_.size());
     for (int i = 0; i < gpstimes_.size(); i++) {
         gpstimes[i] = gpstimes_[i] + gpstime_offset_.x();
     }

@@ -19,6 +19,7 @@
 #include <rapidcsv.h>
 #include <vector>
 #include <iostream>
+#include <iomanip>
 
 using namespace h2o;
 
@@ -29,24 +30,27 @@ int main(int argc, char **argv) {
 
     cxxopts::Options options("MMSTemp");
 
-    std::string dir;
+    std::string truth_pos, warp_pos, rec_pos, ver_file;
     std::string unlock_range;
 
     // clang-format off
         options.add_options("MMSTemp")
-          ("d, dir", "Input file dir", cxxopts::value(dir))
-          ("r,range", "gnss unlock time range", cxxopts::value(unlock_range))
+          ("t, truth", "Input truth pos", cxxopts::value(truth_pos))
+          ("w, warp", "Input warp pos", cxxopts::value(warp_pos))
+          ("r, rec", "Input rec pos", cxxopts::value(rec_pos))
+          ("v, ver", "Input verify file", cxxopts::value(ver_file))
+          ("d,dual", "gnss unlock time range", cxxopts::value(unlock_range))
           ("h,help", "Print help message.");
     // clang-format on
 
     auto arguments = options.parse(argc, argv);
 
-    if (arguments.count("help") || arguments.count("d") == 0) {
+    if (arguments.count("help")) {
         std::cout << options.help({"MMSTemp"}) << std::endl;
         return 1;
     }
 
-    Eigen::Vector2d time_unlock;
+     Eigen::Vector2d time_unlock;
     double time_begin, time_end;
     if (!unlock_range.empty()) {
         const char *s = unlock_range.data();
@@ -54,51 +58,78 @@ int main(int argc, char **argv) {
         time_unlock << time_begin, time_end;
     }
 
-    std::vector<std::vector<Eigen::Vector3d>> vec_devs;
+    Pos pos_truth, pos_warp, pos_rec;
+    pos_truth.load_pos(truth_pos);
+    pos_warp.load_pos(warp_pos);
+    pos_rec.load_pos(rec_pos);
 
-    for (int i = 60; i < 144; i++)
-    {
-        std::vector<Eigen::Vector3d> vec_dev;
-        std::string name = join_paths(dir, "6km-" + std::to_string(i) + ".000000s-checks.csv");
-           
-        rapidcsv::Document doc(name, rapidcsv::LabelParams(0, -1), rapidcsv::SeparatorParams(),
-                               rapidcsv::ConverterParams(true));       
+    std::vector<Eigen::Vector3d> truth_xyz, warp_xyz, rec_xyz, det_t_w, det_t_r;
+    std::vector<double> gps_time;
+    truth_xyz = pos_truth.get_positions();
+    warp_xyz = pos_warp.get_positions();
+    rec_xyz = pos_rec.get_positions();
+    Eigen::VectorXd gpstime_t = pos_truth.get_gpstime();
+    Eigen::VectorXd gpstime_w = pos_warp.get_gpstime();
+    Eigen::VectorXd gpstime_r = pos_rec.get_gpstime();
 
-        //读取单个文件中的dev
-        for (int m = 0; m < doc.GetRowCount()-1; m++) {
-            double time_ = doc.GetCell<double>("time", m);
-            double dev_ = doc.GetCell<double>("Dev. Rectified", m);
-            if (time_ > time_begin && time_ < time_end) {
-                vec_dev.push_back(Eigen::Vector3d(i, time_, dev_));
-            }
+    int num = rec_xyz.size();
+    for (int i = 0; i < num; i++) {
+        if (gpstime_t[i] == gpstime_r[i] && gpstime_t[i] == gpstime_w[i] && gpstime_t[i] >= time_begin &&
+            gpstime_t[i] <= time_end) {
+            Eigen::Vector3d det_i1 =
+                truth_xyz[i] +
+                Eigen::Vector3d(pos_truth.get_position_offset().x(), pos_truth.get_position_offset().y(),
+                                pos_truth.get_position_offset().z()) -
+                warp_xyz[i] -
+                Eigen::Vector3d(pos_warp.get_position_offset().x(), pos_warp.get_position_offset().y(),
+                                pos_warp.get_position_offset().z());
+            Eigen::Vector3d det_i2 =
+                truth_xyz[i] +
+                Eigen::Vector3d(pos_truth.get_position_offset().x(), pos_truth.get_position_offset().y(),
+                                pos_truth.get_position_offset().z()) -
+                rec_xyz[i] -
+                Eigen::Vector3d(pos_rec.get_position_offset().x(), pos_rec.get_position_offset().y(),
+                                pos_rec.get_position_offset().z());
+            det_t_r.push_back(det_i2);
+            det_t_w.push_back(det_i1);
+            gps_time.push_back(gpstime_t[i]);
         }
-        vec_devs.push_back(vec_dev);
-        vec_dev.clear();
-        doc.Clear();
     }
 
-    //计算偏差的平均值，最大值，最小值
-    std::vector<Eigen::Vector3d> static_checks;
-    for (int i = 0; i < vec_devs.size(); i++) {
-        double sum_dev = 0, max_dev = 0, min_dev = 0;
-        for (int j = 0; j < vec_devs[i].size(); j++) {
-            sum_dev += vec_devs[i][j].z();
-            if (max_dev < vec_devs[i][j].z()) {
-                max_dev = vec_devs[i][j].z();
-            }
+
+    rapidcsv::Document doc(ver_file, rapidcsv::LabelParams(-1,-1), rapidcsv::SeparatorParams(),
+                           rapidcsv::ConverterParams(true));       
+
+    std::vector<Eigen::Vector4d> ver_values;
+    int ver_num = doc.GetRowCount();
+    for (int i = 0; i < ver_num; i++) {
+        //std::cout << doc.GetCell<double>(1, i) << std::endl;
+        if (doc.GetCell<double>(0, i) >= time_begin && doc.GetCell<double>(0, i) <= time_end) {
+            Eigen::Vector4d temp(doc.GetCell<double>(0, i), doc.GetCell<double>(1, i), doc.GetCell<double>(2, i),
+                                 doc.GetCell<double>(3, i));
+            ver_values.push_back(temp);
         }
-       static_checks.push_back(Eigen::Vector3d(vec_devs[i][0].x(), sum_dev / vec_devs[i].size(), max_dev));
     }
 
-    std::ofstream rmse_file(std::to_string(time_end-time_begin)+"statistic.csv");
 
-    for (int i = 0; i < static_checks.size(); i++)
-    {
-        rmse_file << static_checks[i].x() << "," << static_checks[i].y() << "," << static_checks[i].z() << "\n";
+    std::ofstream dev_file("det.csv");
+    dev_file << "time1" << "," << "time2" << ","
+             << "tx-wx" << ","<< "ty-wy" << "," << "tz-wz" << ","
+             << "tx-rx" << ","<< "ty-ry" << "," << "tz-rz" << ","
+             << "vx" << ","<< "vy" << "," << "vz" << ","
+             << "t-w" << ","<< "t-r" << "," << "v" << ","
+             << "\n";
+    for (int i = 0; i < det_t_r.size(); i++) {
+        dev_file << std::setprecision(15) << gps_time[i] << "," << std::setprecision(15) << ver_values[i].x() << ","
+                 << det_t_w[i].x() << "," << det_t_w[i].y() << "," << det_t_w[i].z() << "," 
+                 << det_t_r[i].x() << "," << det_t_r[i].y() << "," << det_t_r[i].z() << "," 
+                 << ver_values[i].y() << "," << ver_values[i].z()<< "," << ver_values[i].w() << ","
+                 << det_t_w[i].norm() << ","<< det_t_r[i].norm() << ","
+                 << Eigen::Vector3d(ver_values[i].y(), ver_values[i].z(), ver_values[i].w()).norm()
+                 << "\n";
     }
-    rmse_file.close();
+    dev_file.close();
    
-
     return 0;
 
 }
