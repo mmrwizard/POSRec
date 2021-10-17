@@ -1,0 +1,9 @@
+Package: liblas
+Version: 1.8.1
+Port-Version: 6
+Depends: boost, boost-detail, boost-filesystem, boost-iostreams, boost-system, boost-thread, libgeotiff
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 0a8e5d36eee5bd5016abf8bdfdae5aef3f26a9befa54b4b1ec5d6e4cfa916ddd
+Description: A C/C++ library for reading and writing the very common LAS LiDAR format.
+Type: Port
