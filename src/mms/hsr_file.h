@@ -22,7 +22,7 @@ public:
     struct HsrFileConfig {
         double speed = 1.0;
         std::vector<double> rtime;
-        std::vector<double> rdist = {1.5, 30.0};
+        std::vector<double> rdist = {1.5, 13.0};
 
         std::string wkt;
     };
